@@ -3,141 +3,128 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bboo</title>
+    <title>Bboo | Sign In</title>
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body data-mode="user">
+  <body data-mode="user" data-page="auth">
     <div class="page-shell">
-      <header class="hero">
-        <div class="hero-copy">
+      <main class="auth-layout">
+        <section class="hero-copy auth-hero">
           <div class="brand-row">
             <img src="/icon.svg" alt="Bboo icon" class="brand-icon" />
             <div>
-              <p class="eyebrow" data-i18n="eyebrow">Smart anti-distraction platform</p>
-              <h1 data-i18n="title">Bboo turns profile data and behavior signals into real focus recovery.</h1>
+              <p class="eyebrow" data-i18n="eyebrow">Electric focus recovery</p>
+              <h1 data-i18n="title">Bboo starts with your account, then opens your focus world on the next page.</h1>
             </div>
           </div>
           <p class="subtitle" data-i18n="subtitle">
-            Create an account, build your profile, then enter a bilingual dashboard with intervention tools, habit coaching, graphs, and parent guidance.
+            First enter your important data and sign in or log in. After that, Bboo moves you to a dedicated dashboard page with graphs, habits, and guidance.
           </p>
-        </div>
+          <div class="auth-preview">
+            <div class="preview-pill">Electric Fuchsia</div>
+            <div class="preview-pill">Separate Dashboard</div>
+            <div class="preview-pill">Profile First</div>
+          </div>
+        </section>
 
-        <section class="hero-panel">
-          <div class="section-head compact">
-            <h2 data-i18n="profileTitle">Create profile</h2>
-            <p data-i18n="profileSubtitle">Important data first, then Bboo opens your dashboard with a personalized account.</p>
+        <section class="hero-panel auth-panel">
+          <div class="tab-row">
+            <button id="createTab" class="tab-btn is-active" type="button" data-i18n="createAccount">Create account</button>
+            <button id="loginTab" class="tab-btn" type="button" data-i18n="login">Log in</button>
           </div>
 
-          <form id="profileForm" class="control-grid">
-            <label>
-              <span data-i18n="firstName">First name</span>
-              <input id="firstName" value="Lina" />
-            </label>
-            <label>
-              <span data-i18n="lastName">Last name</span>
-              <input id="lastName" value="Hassan" />
-            </label>
-            <label>
-              <span data-i18n="email">Email</span>
-              <input id="email" type="email" value="lina@bboo.app" />
-            </label>
-            <label>
-              <span data-i18n="country">Country</span>
-              <input id="country" value="Egypt" />
-            </label>
-            <label>
-              <span data-i18n="language">Language</span>
-              <select id="language">
-                <option value="en">English</option>
-                <option value="ar">العربية</option>
-              </select>
-            </label>
-            <label>
-              <span data-i18n="audience">Audience</span>
-              <select id="audience">
-                <option value="student">Student</option>
-                <option value="young-adult">Young Adult</option>
-                <option value="child">Child</option>
-              </select>
-            </label>
-            <label>
-              <span data-i18n="view">Dashboard</span>
-              <select id="mode">
-                <option value="user">User</option>
-                <option value="parent">Parent</option>
-              </select>
-            </label>
-            <label class="toggle">
-              <span data-i18n="permissions">Device permission</span>
-              <input id="permissions" type="checkbox" checked />
-            </label>
+          <form id="createForm" class="auth-form">
+            <div class="section-head compact">
+              <h2 data-i18n="profileTitle">Create account profile</h2>
+              <p data-i18n="profileSubtitle">Fill the important data first. Bboo uses it to prepare your next page.</p>
+            </div>
+
+            <div class="control-grid">
+              <label>
+                <span data-i18n="firstName">First name</span>
+                <input id="createFirstName" value="Lina" required />
+              </label>
+              <label>
+                <span data-i18n="lastName">Last name</span>
+                <input id="createLastName" value="Hassan" required />
+              </label>
+              <label>
+                <span data-i18n="email">Email</span>
+                <input id="createEmail" type="email" value="lina@bboo.app" required />
+              </label>
+              <label>
+                <span data-i18n="password">Password</span>
+                <input id="createPassword" type="password" value="12345678" required />
+              </label>
+              <label>
+                <span data-i18n="country">Country</span>
+                <input id="createCountry" value="Egypt" required />
+              </label>
+              <label>
+                <span data-i18n="language">Language</span>
+                <select id="createLanguage">
+                  <option value="en">English</option>
+                  <option value="ar">العربية</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="audience">Audience</span>
+                <select id="createAudience">
+                  <option value="student">Student</option>
+                  <option value="young-adult">Young Adult</option>
+                  <option value="child">Child</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="view">Dashboard</span>
+                <select id="createMode">
+                  <option value="user">User</option>
+                  <option value="parent">Parent</option>
+                </select>
+              </label>
+              <label class="toggle">
+                <span data-i18n="permissions">Device permission</span>
+                <input id="createPermissions" type="checkbox" checked />
+              </label>
+            </div>
+
+            <button class="primary-btn" type="submit" data-i18n="continue">Continue to dashboard</button>
           </form>
 
-          <button id="enterDashboard" class="primary-btn" data-i18n="enterDashboard">Enter Bboo</button>
-        </section>
-      </header>
-
-      <main class="dashboard">
-        <section class="score-card glass">
-          <div>
-            <p class="card-label" data-i18n="liveOverview">Account overview</p>
-            <h2 id="headline">Bboo overview</h2>
-          </div>
-          <div class="score-ring">
-            <div class="score-core">
-              <span id="focusScore">--</span>
-              <small data-i18n="scoreLabel">Focus score</small>
+          <form id="loginForm" class="auth-form hidden">
+            <div class="section-head compact">
+              <h2 data-i18n="loginTitle">Log in to Bboo</h2>
+              <p data-i18n="loginSubtitle">Enter your account details, then go to the separate dashboard page.</p>
             </div>
-          </div>
-          <p id="stateBadge" class="state-badge">--</p>
-        </section>
 
-        <section class="profile-grid" id="profileSummary"></section>
-        <section class="metrics-grid" id="metrics"></section>
-        <section class="charts-grid" id="charts"></section>
-
-        <section class="two-column">
-          <article class="glass section-card">
-            <div class="section-head">
-              <h3 data-i18n="habitsTitle">Habit booster</h3>
-              <p data-i18n="habitsSubtitle">Small actions that train attention every day.</p>
+            <div class="control-grid single-column">
+              <label>
+                <span data-i18n="email">Email</span>
+                <input id="loginEmail" type="email" value="lina@bboo.app" required />
+              </label>
+              <label>
+                <span data-i18n="password">Password</span>
+                <input id="loginPassword" type="password" value="12345678" required />
+              </label>
+              <label>
+                <span data-i18n="language">Language</span>
+                <select id="loginLanguage">
+                  <option value="en">English</option>
+                  <option value="ar">العربية</option>
+                </select>
+              </label>
             </div>
-            <div id="habits" class="stack"></div>
-          </article>
 
-          <article class="glass section-card">
-            <div class="section-head">
-              <h3 data-i18n="planTitle">Personalized plan</h3>
-              <p data-i18n="planSubtitle">Adaptive focus sessions, friction, and recovery rituals.</p>
-            </div>
-            <div id="plan"></div>
-          </article>
-        </section>
-
-        <section class="two-column">
-          <article class="glass section-card">
-            <div class="section-head">
-              <h3 data-i18n="insightsTitle">Actionable insights</h3>
-              <p data-i18n="insightsSubtitle">Recommendations backed by behavioral signals.</p>
-            </div>
-            <div id="insights" class="stack"></div>
-          </article>
-
-          <article class="glass section-card">
-            <div class="section-head">
-              <h3 data-i18n="parentTitle">Guardian guidance</h3>
-              <p data-i18n="parentSubtitle">Healthy monitoring for younger users.</p>
-            </div>
-            <div id="parentGuidance" class="stack empty-state">Parent mode content appears here.</div>
-          </article>
+            <button class="primary-btn" type="submit" data-i18n="enterDashboard">Enter dashboard</button>
+          </form>
         </section>
       </main>
     </div>
 
-    <script src="/app.js"></script>
+    <script src="/auth.js"></script>
   </body>
 </html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bboo | Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body data-mode="user" data-page="dashboard">
+    <div class="page-shell">
+      <header class="dashboard-topbar glass">
+        <div class="brand-row compact-brand">
+          <img src="/icon.svg" alt="Bboo icon" class="brand-icon small" />
+          <div>
+            <p class="eyebrow" data-i18n="dashboardEyebrow">Bboo dashboard</p>
+            <h2 id="topbarName">Your focus dashboard</h2>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button id="backToAuth" class="ghost-btn" type="button" data-i18n="switchAccount">Switch account</button>
+        </div>
+      </header>
+
+      <main class="dashboard">
+        <section class="score-card glass">
+          <div>
+            <p class="card-label" data-i18n="liveOverview">Account overview</p>
+            <h1 id="headline">Bboo overview</h1>
+          </div>
+          <div class="score-ring">
+            <div class="score-core">
+              <span id="focusScore">--</span>
+              <small data-i18n="scoreLabel">Focus score</small>
+            </div>
+          </div>
+          <p id="stateBadge" class="state-badge">--</p>
+        </section>
+
+        <section class="profile-grid" id="profileSummary"></section>
+        <section class="metrics-grid" id="metrics"></section>
+        <section class="charts-grid" id="charts"></section>
+
+        <section class="two-column">
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3 data-i18n="habitsTitle">Habit booster</h3>
+              <p data-i18n="habitsSubtitle">Small actions that train attention every day.</p>
+            </div>
+            <div id="habits" class="stack"></div>
+          </article>
+
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3 data-i18n="planTitle">Personalized plan</h3>
+              <p data-i18n="planSubtitle">Adaptive focus sessions, friction, and recovery rituals.</p>
+            </div>
+            <div id="plan"></div>
+          </article>
+        </section>
+
+        <section class="two-column">
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3 data-i18n="insightsTitle">Actionable insights</h3>
+              <p data-i18n="insightsSubtitle">Recommendations backed by behavioral signals.</p>
+            </div>
+            <div id="insights" class="stack"></div>
+          </article>
+
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3 data-i18n="parentTitle">Guardian guidance</h3>
+              <p data-i18n="parentSubtitle">Healthy monitoring for younger users.</p>
+            </div>
+            <div id="parentGuidance" class="stack empty-state">Parent mode content appears here.</div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="/dashboard.js"></script>
+  </body>
+</html>
