@@ -10,9 +10,22 @@ def utc_now_iso() -> str:
 
 
 @dataclass(slots=True)
-class UserProfile:
+class AccountProfile:
     first_name: str
+    last_name: str
+    email: str
+    country: str
+    preferred_language: str
+    role: str
     age_group: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class UserProfile:
+    account: AccountProfile
     permissions_granted: bool
     daily_notifications: int
     social_media_hours: float
@@ -64,6 +77,35 @@ class ParentGuidance:
 
 
 @dataclass(slots=True)
+class ProfileField:
+    label: str
+    value: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class TrendPoint:
+    label: str
+    value: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ChartSeries:
+    title: str
+    subtitle: str
+    chart_type: str
+    points: list[TrendPoint]
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
 class DashboardSnapshot:
     generated_at: str
     app_name: str
@@ -72,14 +114,15 @@ class DashboardSnapshot:
     headline: str
     focus_score: int
     current_state: str
+    profile_summary: list[ProfileField] = field(default_factory=list)
     metrics: list[FocusMetric] = field(default_factory=list)
     habits: list[HabitCard] = field(default_factory=list)
     insights: list[InsightCard] = field(default_factory=list)
+    charts: list[ChartSeries] = field(default_factory=list)
     parent_guidance: ParentGuidance | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        data = asdict(self)
-        return data
+        return asdict(self)
 
 
 @dataclass(slots=True)

@@ -3,24 +3,52 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FocusGuard</title>
+    <title>Bboo</title>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
+  <body data-mode="user">
     <div class="page-shell">
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow" data-i18n="eyebrow">Digital wellness platform</p>
-          <h1 data-i18n="title">FocusGuard helps people escape brain rot with smart focus recovery.</h1>
+          <div class="brand-row">
+            <img src="/icon.svg" alt="Bboo icon" class="brand-icon" />
+            <div>
+              <p class="eyebrow" data-i18n="eyebrow">Smart anti-distraction platform</p>
+              <h1 data-i18n="title">Bboo turns profile data and behavior signals into real focus recovery.</h1>
+            </div>
+          </div>
           <p class="subtitle" data-i18n="subtitle">
-            A bilingual application for students, young adults, and parents with intervention tools, habit coaching, attention games, and practical insights.
+            Create an account, build your profile, then enter a bilingual dashboard with intervention tools, habit coaching, graphs, and parent guidance.
           </p>
         </div>
-        <div class="hero-panel">
-          <div class="control-grid">
+
+        <section class="hero-panel">
+          <div class="section-head compact">
+            <h2 data-i18n="profileTitle">Create profile</h2>
+            <p data-i18n="profileSubtitle">Important data first, then Bboo opens your dashboard with a personalized account.</p>
+          </div>
+
+          <form id="profileForm" class="control-grid">
+            <label>
+              <span data-i18n="firstName">First name</span>
+              <input id="firstName" value="Lina" />
+            </label>
+            <label>
+              <span data-i18n="lastName">Last name</span>
+              <input id="lastName" value="Hassan" />
+            </label>
+            <label>
+              <span data-i18n="email">Email</span>
+              <input id="email" type="email" value="lina@bboo.app" />
+            </label>
+            <label>
+              <span data-i18n="country">Country</span>
+              <input id="country" value="Egypt" />
+            </label>
             <label>
               <span data-i18n="language">Language</span>
               <select id="language">
@@ -47,15 +75,18 @@
               <span data-i18n="permissions">Device permission</span>
               <input id="permissions" type="checkbox" checked />
             </label>
-          </div>
-          <button id="refresh" class="primary-btn" data-i18n="refresh">Refresh dashboard</button>
-        </div>
+          </form>
+
+          <button id="enterDashboard" class="primary-btn" data-i18n="enterDashboard">Enter Bboo</button>
+        </section>
       </header>
 
       <main class="dashboard">
         <section class="score-card glass">
-          <p class="card-label" data-i18n="liveOverview">Live overview</p>
-          <h2 id="headline">FocusGuard overview</h2>
+          <div>
+            <p class="card-label" data-i18n="liveOverview">Account overview</p>
+            <h2 id="headline">Bboo overview</h2>
+          </div>
           <div class="score-ring">
             <div class="score-core">
               <span id="focusScore">--</span>
@@ -65,7 +96,9 @@
           <p id="stateBadge" class="state-badge">--</p>
         </section>
 
+        <section class="profile-grid" id="profileSummary"></section>
         <section class="metrics-grid" id="metrics"></section>
+        <section class="charts-grid" id="charts"></section>
 
         <section class="two-column">
           <article class="glass section-card">

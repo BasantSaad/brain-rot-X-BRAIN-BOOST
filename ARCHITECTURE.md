@@ -1,245 +1,194 @@
-# FocusGuard Architecture
+# Bboo Architecture
 
 ## 1. Product Vision
 
-FocusGuard is a digital wellness platform designed to reduce distraction, repair attention, and improve productivity for people affected by digital overload.
+Bboo is a real anti-distraction application designed to reduce digital overload, rebuild attention, and improve productivity for students, young adults, and children under guardian care.
 
-It targets:
+The product begins with account creation and profile onboarding before the user enters the application dashboard.
 
-- students
-- young adults
-- children under parent supervision
+## 2. Core Real-Application Flow
 
-Primary outcomes:
+The real application should work in this order:
 
-- reduce interruptions from notifications and compulsive scrolling
-- improve focus and task completion
-- build healthier habits through behavioral coaching
-- help parents monitor children safely and supportively
-- provide localized, bilingual experiences in English and Arabic
+1. User opens Bboo.
+2. User creates an account or signs in.
+3. User enters important profile data.
+4. User grants device permissions or chooses manual data input.
+5. Bboo creates the profile and baseline behavior model.
+6. User enters the dashboard.
+7. Bboo continuously updates habits, graphs, interventions, and insights.
 
-## 2. Senior-Level Architecture
+Important profile data:
 
-### A. Client Applications
+- first name
+- last name
+- email
+- country
+- preferred language
+- audience type
+- account role
+- permission consent
 
-Clients include:
+## 3. Senior-Level Architecture
 
-- mobile app for Android and iOS
-- responsive web dashboard
+### A. Client Experience Layer
+
+Applications:
+
+- mobile app
+- responsive web app
 - parent dashboard
 
-Core responsibilities:
-
-- collect consent and device permissions
-- show focus sessions, habit streaks, and insights
-- deliver intervention prompts and mini-games
-- let users enter data manually if permissions are unavailable
-
-### B. Device Intelligence Layer
-
-This layer operates on-device when permissions are granted.
-
 Responsibilities:
 
-- monitor notification intensity
-- monitor app switching and social media dwell time
-- identify distraction spikes
-- trigger focus mode automation where supported
-- keep sensitive raw behavior data local when possible
+- registration and login
+- profile creation and profile editing
+- language selection
+- dashboard presentation
+- graph rendering
+- focus sessions and attention games
+- guardian controls
 
-If the user refuses permission:
+### B. Identity and Profile Layer
 
-- the application switches to guided self-reporting
-- manual inputs feed the personalization engine
-- the dashboard remains functional with reduced accuracy
+Services:
 
-### C. Application Services Layer
-
-Backend services are split by responsibility.
-
-Recommended services:
-
-- `identity-service`
+- `auth-service`
 - `profile-service`
-- `focus-session-service`
-- `habit-service`
-- `intervention-service`
-- `insights-service`
-- `guardian-service`
-- `notification-service`
-- `localization-service`
 
 Responsibilities:
 
-- authenticate users and guardians
-- manage children and guardian relationships
-- store plans, sessions, and habit progress
-- generate interventions and practical advice
-- expose APIs for dashboards and reports
-- support multilingual content delivery
+- account creation
+- login and session management
+- password reset
+- guardian-child linking
+- role-based access
+- profile completion tracking
 
-### D. AI and Personalization Layer
+### C. Device Intelligence Layer
 
-Use hybrid intelligence rather than only a black-box model.
+This layer runs when permissions are granted.
 
-Inputs:
+Responsibilities:
 
-- notification load
-- screen time
-- app-switch frequency
-- sleep quality
-- completed focus sessions
-- planning consistency
-- self-reported mood and fatigue
+- capture notification intensity
+- capture app switching behavior
+- estimate distraction load
+- detect high-risk time windows
+- trigger focus intervention hooks
+
+If permissions are denied:
+
+- Bboo collects manual profile and self-report data
+- the dashboard still works
+- insight confidence is marked as estimated
+
+### D. Personalization and Intervention Layer
+
+Services:
+
+- `focus-engine`
+- `habit-engine`
+- `intervention-engine`
+- `insights-engine`
+- `guardian-guidance-engine`
 
 Outputs:
 
 - focus score
-- distraction risk state
-- personalized daily plan
-- intervention timing
-- guardian guidance
-
-Recommended methods:
-
-- rule engine for safety and immediate triggers
-- behavioral segmentation for user type classification
-- recommendation model for habit and focus plan selection
-- analytics jobs for long-term patterns
+- personalized plan
+- habit recommendations
+- graph-ready trend summaries
+- supportive parent guidance
 
 ### E. Data Layer
 
-Use a split data strategy.
-
-Operational database:
+Operational data:
 
 - `PostgreSQL`
 
-Analytics storage:
-
-- `BigQuery`, `ClickHouse`, or `Snowflake`
-
-Caching:
+Cache and sessions:
 
 - `Redis`
 
-Important data entities:
+Analytics and trend storage:
+
+- `ClickHouse` or `BigQuery`
+
+Core entities:
 
 - users
 - guardians
-- child profiles
-- focus sessions
-- interventions
+- child_profiles
+- behavior_summaries
+- focus_plans
 - habits
+- interventions
 - insights
-- app usage summaries
-- notification summaries
+- dashboard_snapshots
 
-### F. Privacy and Safety Layer
+### F. Notification and Communication Layer
 
-This is critical for real production.
+Responsibilities:
+
+- intervention prompts
+- session reminders
+- guardian alerts for sustained overload
+- email verification
+- localized notifications
+
+### G. Globalization and Policy Layer
 
 Requirements:
 
-- explicit consent for device-level monitoring
-- child account protections
-- region-aware privacy settings
-- minimum-data collection defaults
-- guardian access controls
-- audit logging for parent actions
-- encrypted data in transit and at rest
-
-### G. Globalization Layer
-
-The platform should scale globally.
-
-Important design choices:
-
-- localization-ready content system
-- English and Arabic support from the first release
+- English and Arabic from release one
 - timezone-aware scheduling
-- configurable intervention rules by market
-- feature flags for country-specific compliance needs
+- local privacy policy variations
+- child-safety controls by region
 
-## 3. Key Workflows
+## 4. Security and Privacy
 
-### User Focus Recovery Workflow
+Because Bboo may involve children and behavior data, the real system must include:
 
-1. User signs in and selects language.
-2. User grants permissions or enters behavior data manually.
-3. Device layer or self-report form sends behavior summary.
-4. Personalization engine calculates focus score and risk state.
-5. Dashboard shows plan, habits, and interventions.
-6. User completes sessions and attention games.
-7. Progress feeds future recommendations.
+- consent-first monitoring
+- guardian authorization checks
+- encryption at rest and in transit
+- profile audit trails
+- minimal default data collection
+- explainable parent summaries instead of raw surveillance
 
-### Parent Monitoring Workflow
+## 5. Visual System Direction
 
-1. Guardian links a child account.
-2. Guardian views safe summaries instead of invasive raw details.
-3. System detects sustained overload or unhealthy trends.
-4. Guardian receives guidance and recommended actions.
-5. Guardian adjusts schedule rules and encouragement patterns.
+### User Dashboard
 
-## 4. Suggested Tech Stack
+- primary tone: Electric Fuchsia
+- emotional goal: energetic, high-saturation, motivating, attention-grabbing
 
-Frontend:
+### Parent Dashboard
 
-- `Next.js` or `React`
-- `TypeScript`
-- `Tailwind CSS` or custom design system
+- primary tone: Transformative Teal
+- emotional goal: responsibility, guidance, calm oversight, trust
 
-Mobile:
-
-- `Flutter` or `React Native`
-
-Backend:
-
-- `FastAPI` or `NestJS`
-- `PostgreSQL`
-- `Redis`
-
-Analytics:
-
-- `dbt`
-- `ClickHouse` or `BigQuery`
-
-Notifications:
-
-- Firebase Cloud Messaging
-- APNs
-- email provider for guardian summaries
-
-## 5. Build Roadmap
+## 6. Production Build Roadmap
 
 ### Phase 1
 
 - authentication
-- onboarding
-- focus dashboard
-- manual input fallback
-- personalized plans
-- English and Arabic UI
+- profile onboarding
+- bilingual dashboards
+- manual-input fallback
+- graphs and habits
 
 ### Phase 2
 
-- device-permission data collection
-- intervention automation
-- attention mini-games
-- guardian dashboard
+- mobile permission integration
+- distraction intervention automation
+- attention games
+- guardian linking
 
 ### Phase 3
 
-- production analytics
-- adaptive recommendation models
-- localization expansion
-- enterprise education partnerships
-
-## 6. Senior Engineering Notes
-
-- Design the product to remain useful without device permissions.
-- Keep child monitoring supportive, not punitive.
-- Separate raw device signals from summarized analytics.
-- Make the intervention engine explainable.
-- Treat bilingual support as a first-class system concern, not a UI afterthought.
-- Add observability, audit trails, and privacy controls early.
+- analytics warehouse
+- adaptive recommendations
+- regional expansion
+- production observability
