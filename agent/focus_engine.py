@@ -36,26 +36,20 @@ class FocusCoachEngine:
         mode: str = "user",
     ) -> DashboardSnapshot:
         score = self._focus_score(profile)
-        insights = self._insights(profile, language)
-        habits = self._habits(profile, language)
-        metrics = self._metrics(profile, score, language, mode)
-        guidance = self._parent_guidance(language)
-        headline = self._brain_banner(profile.account.first_name, score, language)
-
         return DashboardSnapshot(
             generated_at=utc_now_iso(),
             app_name="Bboo",
             language=language,
             mode=mode,
-            headline=headline,
+            headline=self._brain_banner(profile.account.first_name, score, language),
             focus_score=score,
             current_state=self._state_label(score, language),
             profile_summary=self._profile_summary(profile, language),
-            metrics=metrics,
-            habits=habits,
-            insights=insights,
-            charts=self._charts(profile, language, mode),
-            parent_guidance=guidance if mode == "parent" else None,
+            metrics=self._metrics(profile, score, language, mode),
+            habits=self._habits(profile, language),
+            insights=self._insights(profile, language),
+            charts=self._charts(profile, language),
+            parent_guidance=self._parent_guidance(language) if mode == "parent" else None,
         )
 
     def build_personalized_plan(self, profile: UserProfile, language: str = "en") -> FocusPlan:
@@ -191,7 +185,7 @@ class FocusCoachEngine:
             ),
         ]
 
-    def _charts(self, profile: UserProfile, language: str, mode: str) -> list[ChartSeries]:
+    def _charts(self, profile: UserProfile, language: str) -> list[ChartSeries]:
         focus_points = [
             TrendPoint("Mon", 2.4),
             TrendPoint("Tue", 3.1),
@@ -201,16 +195,14 @@ class FocusCoachEngine:
             TrendPoint("Sat", 4.8),
             TrendPoint("Sun", round(max(1.8, profile.completed_focus_sessions_last_week * 0.55), 1)),
         ]
-        distraction_points = [
-            TrendPoint("Mon", 44),
-            TrendPoint("Tue", 51),
-            TrendPoint("Wed", 49),
-            TrendPoint("Thu", 58),
-            TrendPoint("Fri", 64),
-            TrendPoint("Sat", 69),
-            TrendPoint("Sun", self._focus_score(profile)),
+        app_usage_points = [
+            TrendPoint("TikTok", round(max(0.7, profile.social_media_hours * 0.34), 1)),
+            TrendPoint("Instagram", round(max(0.6, profile.social_media_hours * 0.26), 1)),
+            TrendPoint("YouTube", round(max(0.6, profile.social_media_hours * 0.22), 1)),
+            TrendPoint("WhatsApp", round(max(0.4, profile.social_media_hours * 0.12), 1)),
+            TrendPoint("Chrome", round(max(0.3, profile.social_media_hours * 0.08), 1)),
         ]
-        charts = [
+        return [
             ChartSeries(
                 title=self._text(language, en="Focus hours in the past 7 days", ar="ساعات التركيز في آخر 7 أيام"),
                 subtitle=self._text(language, en="Hours of focused work or study per day", ar="ساعات العمل أو الدراسة المركزة لكل يوم"),
@@ -218,28 +210,12 @@ class FocusCoachEngine:
                 points=focus_points,
             ),
             ChartSeries(
-                title=self._text(language, en="Weekly focus score", ar="درجة التركيز الأسبوعية"),
-                subtitle=self._text(language, en="Daily score trend after login and interventions", ar="اتجاه الدرجة اليومية بعد تسجيل الدخول والتدخلات"),
-                chart_type="line",
-                points=distraction_points,
+                title=self._text(language, en="Today's app usage", ar="استخدام التطبيقات اليوم"),
+                subtitle=self._text(language, en="A beautiful donut view of where today's app time went", ar="عرض دائري جميل يوضح أين ذهب وقت التطبيقات اليوم"),
+                chart_type="donut",
+                points=app_usage_points,
             ),
         ]
-        if mode == "parent":
-            charts.append(
-                ChartSeries(
-                    title=self._text(language, en="Guardian watch", ar="مراقبة ولي الأمر"),
-                    subtitle=self._text(language, en="Risk intensity across the day", ar="شدة الخطر على مدار اليوم"),
-                    chart_type="area",
-                    points=[
-                        TrendPoint("8A", 24),
-                        TrendPoint("12P", 41),
-                        TrendPoint("4P", 57),
-                        TrendPoint("8P", 79),
-                        TrendPoint("10P", 72),
-                    ],
-                )
-            )
-        return charts
 
     def _parent_guidance(self, language: str) -> ParentGuidance:
         return ParentGuidance(
@@ -257,10 +233,10 @@ class FocusCoachEngine:
 
     def _state_label(self, score: int, language: str) -> str:
         if score >= 80:
-            return self._text(language, en="Focused", ar="مركز")
+            return self._text(language, en="Brain Boost", ar="تعزيز الدماغ")
         if score >= 60:
             return self._text(language, en="Recovering", ar="يتحسن")
-        return self._text(language, en="Overloaded", ar="مرهق رقميا")
+        return self._text(language, en="Brain Rot", ar="دماغ مرهق")
 
     def _brain_banner(self, first_name: str, score: int, language: str) -> str:
         if score >= 60:

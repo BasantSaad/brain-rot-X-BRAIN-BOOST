@@ -7,12 +7,16 @@ const dashboardTranslations = {
     habitsTitle: "Habit booster",
     habitsSubtitle: "Small actions that train attention every day.",
     planTitle: "Personalized plan",
-    planSubtitle: "Adaptive focus sessions, friction, and recovery rituals.",
+    planSubtitle: "Edit the plan yourself and shape it around your real routine.",
     insightsTitle: "Actionable insights",
     insightsSubtitle: "Recommendations backed by behavioral signals.",
     parentTitle: "Guardian guidance",
     parentSubtitle: "Healthy monitoring for younger users.",
-    noParent: "Switch to parent mode to see guardian guidance.",
+    donutLabel: "Apps today",
+    themeLabel: "Theme",
+    minutesLabel: "Session minutes",
+    stepsLabel: "Steps",
+    savePlan: "Save my edits",
   },
   ar: {
     dashboardEyebrow: "لوحة Bboo",
@@ -22,16 +26,21 @@ const dashboardTranslations = {
     habitsTitle: "معزز العادات",
     habitsSubtitle: "خطوات صغيرة تدرب الانتباه كل يوم.",
     planTitle: "الخطة الشخصية",
-    planSubtitle: "جلسات تركيز وحدود ذكية وطقوس استعادة.",
+    planSubtitle: "يمكنك تعديل الخطة بنفسك لتناسب روتينك الحقيقي.",
     insightsTitle: "رؤى عملية",
     insightsSubtitle: "توصيات مبنية على الإشارات السلوكية.",
     parentTitle: "إرشاد ولي الأمر",
     parentSubtitle: "متابعة صحية للمستخدمين الأصغر سنا.",
-    noParent: "بدل إلى وضع ولي الأمر لرؤية الإرشادات.",
+    donutLabel: "تطبيقات اليوم",
+    themeLabel: "الثيمة",
+    minutesLabel: "دقائق الجلسة",
+    stepsLabel: "الخطوات",
+    savePlan: "احفظ تعديلاتي",
   },
 };
 
 const sessionKey = "bboo-session";
+const planEditKey = "bboo-plan-edits";
 const session = JSON.parse(localStorage.getItem(sessionKey) || "null");
 
 if (!session) {
@@ -49,8 +58,13 @@ const dashEls = {
   plan: document.getElementById("plan"),
   insights: document.getElementById("insights"),
   parentGuidance: document.getElementById("parentGuidance"),
+  guardianSection: document.getElementById("guardianSection"),
   backToAuth: document.getElementById("backToAuth"),
 };
+
+function t(key) {
+  return dashboardTranslations[session.lang || "en"][key];
+}
 
 function applyDashboardI18n(language) {
   document.documentElement.lang = language;
@@ -77,46 +91,106 @@ function insightCard(insight) {
 }
 
 function planCard(plan) {
-  return `<div class="plan-card"><strong>${plan.title}</strong><p>${plan.focus_theme} · ${plan.recommended_session_minutes} min</p><ul>${plan.steps.map((step) => `<li>${step}</li>`).join("")}</ul><p><strong>${plan.attention_game}</strong></p></div>`;
+  const savedPlan = JSON.parse(localStorage.getItem(planEditKey) || "null");
+  const sessionMinutes = savedPlan?.minutes || plan.recommended_session_minutes;
+  const focusTheme = savedPlan?.theme || plan.focus_theme;
+  const steps = savedPlan?.steps || plan.steps;
+  return `
+    <div class="plan-card editable-plan">
+      <strong>${plan.title}</strong>
+      <label class="edit-field">
+        <span>${t("themeLabel")}</span>
+        <input id="planThemeInput" value="${focusTheme}">
+      </label>
+      <label class="edit-field">
+        <span>${t("minutesLabel")}</span>
+        <input id="planMinutesInput" type="number" min="10" max="120" value="${sessionMinutes}">
+      </label>
+      <label class="edit-field">
+        <span>${t("stepsLabel")}</span>
+        <textarea id="planStepsInput" rows="7">${steps.join("\n")}</textarea>
+      </label>
+      <p><strong>${plan.attention_game}</strong></p>
+      <button id="savePlanEdits" class="ghost-btn save-plan-btn" type="button">${t("savePlan")}</button>
+    </div>
+  `;
 }
 
 function guidanceCard(guidance) {
   return `<div class="guidance-card"><p>${guidance.summary}</p><ul>${guidance.recommended_actions.map((step) => `<li>${step}</li>`).join("")}</ul></div>`;
 }
 
-function renderLineOrArea(points, area = false) {
-  const w = 560;
-  const h = 190;
-  const pad = 26;
-  const max = Math.max(...points.map((point) => point.value), 100);
-  const xStep = points.length > 1 ? (w - pad * 2) / (points.length - 1) : 0;
-  const coords = points.map((point, index) => {
-    const x = pad + xStep * index;
-    const y = h - pad - (point.value / max) * (h - pad * 2);
-    return { x, y };
-  });
-  const path = coords.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
-  const areaPath = `${path} L ${coords[coords.length - 1].x} ${h - pad} L ${coords[0].x} ${h - pad} Z`;
-  return `<svg class="chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><defs><linearGradient id="chartFill" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="var(--accent-soft)" stop-opacity="0.65"></stop><stop offset="100%" stop-color="var(--accent-soft)" stop-opacity="0.04"></stop></linearGradient></defs><path d="${area ? areaPath : path}" fill="${area ? "url(#chartFill)" : "none"}" stroke="${area ? "none" : "var(--accent-soft)"}"></path><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>${coords.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="5" fill="var(--secondary-soft)"></circle>`).join("")}</svg>`;
+function renderBars(points) {
+  const max = Math.max(...points.map((point) => point.value), 6);
+  return `
+    <div class="chart-shell">
+      <svg class="chart-svg" viewBox="0 0 560 190" preserveAspectRatio="none">
+        ${points.map((point, index) => {
+          const barWidth = 54;
+          const gap = 20;
+          const x = 20 + index * (barWidth + gap);
+          const barHeight = (point.value / max) * 132;
+          const y = 162 - barHeight;
+          return `<g><rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="18" fill="var(--accent)"></rect><text x="${x + barWidth / 2}" y="${y - 8}" text-anchor="middle" fill="var(--accent-bright)" font-size="12">${point.value}h</text></g>`;
+        }).join("")}
+      </svg>
+      <div class="chart-labels">${points.map((point) => `<span>${point.label}</span>`).join("")}</div>
+    </div>
+  `;
 }
 
-function renderBars(points) {
-  const max = Math.max(...points.map((point) => point.value), 100);
-  return `<div class="chart-shell"><svg class="chart-svg" viewBox="0 0 560 190" preserveAspectRatio="none">${points.map((point, index) => {
-    const barWidth = 82;
-    const gap = 42;
-    const x = 28 + index * (barWidth + gap);
-    const barHeight = (point.value / max) * 132;
-    const y = 162 - barHeight;
-    return `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="18" fill="var(--accent)"></rect>`;
-  }).join("")}</svg><div class="chart-labels">${points.map((point) => `<span>${point.label}</span>`).join("")}</div></div>`;
+function renderDonut(points) {
+  const total = points.reduce((sum, point) => sum + point.value, 0) || 1;
+  const colors = ["var(--accent)", "var(--secondary)", "var(--accent-soft)", "var(--secondary-soft)", "var(--accent-bright)"];
+  let current = 0;
+  const segments = points.map((point, index) => {
+    const start = current / total * 360;
+    current += point.value;
+    const end = current / total * 360;
+    return `${colors[index % colors.length]} ${start}deg ${end}deg`;
+  }).join(", ");
+  return `
+    <div class="donut-layout">
+      <div class="donut-chart" style="background:conic-gradient(${segments})">
+        <div class="donut-hole">
+          <strong>${total.toFixed(1)}h</strong>
+          <span>${t("donutLabel")}</span>
+        </div>
+      </div>
+      <div class="donut-legend">
+        ${points.map((point, index) => `
+          <div class="legend-row">
+            <span class="legend-dot" style="background:${colors[index % colors.length]}"></span>
+            <span>${point.label}</span>
+            <strong>${point.value}h</strong>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function chartCard(chart) {
-  const visual = chart.chart_type === "bar"
-    ? renderBars(chart.points)
-    : `<div class="chart-shell">${renderLineOrArea(chart.points, chart.chart_type === "area")}<div class="chart-labels">${chart.points.map((point) => `<span>${point.label}</span>`).join("")}</div></div>`;
+  const visual = chart.chart_type === "bar" ? renderBars(chart.points) : renderDonut(chart.points);
   return `<article class="glass chart-card"><h3>${chart.title}</h3><p>${chart.subtitle}</p>${visual}</article>`;
+}
+
+function attachPlanEditor(plan) {
+  const saveButton = document.getElementById("savePlanEdits");
+  if (!saveButton) {
+    return;
+  }
+  saveButton.addEventListener("click", () => {
+    const steps = document.getElementById("planStepsInput").value
+      .split("\n")
+      .map((step) => step.trim())
+      .filter(Boolean);
+    localStorage.setItem(planEditKey, JSON.stringify({
+      theme: document.getElementById("planThemeInput").value.trim() || plan.focus_theme,
+      minutes: Number(document.getElementById("planMinutesInput").value) || plan.recommended_session_minutes,
+      steps,
+    }));
+  });
 }
 
 async function loadDashboard() {
@@ -131,7 +205,6 @@ async function loadDashboard() {
   const dashboard = await dashboardRes.json();
   const plan = await planRes.json();
 
-  dashEls.topbarName.textContent = `${session.first_name || "Bboo"} ${session.last_name || ""}`.trim();
   dashEls.topbarName.textContent = session.first_name || "Bboo";
   dashEls.headline.textContent = dashboard.headline;
   dashEls.focusScore.textContent = dashboard.focus_score;
@@ -141,13 +214,14 @@ async function loadDashboard() {
   dashEls.habits.innerHTML = dashboard.habits.map(habitCard).join("");
   dashEls.insights.innerHTML = dashboard.insights.map(insightCard).join("");
   dashEls.plan.innerHTML = planCard(plan);
+  attachPlanEditor(plan);
 
   if (dashboard.parent_guidance) {
+    dashEls.guardianSection.classList.remove("hidden");
     dashEls.parentGuidance.className = "stack";
     dashEls.parentGuidance.innerHTML = guidanceCard(dashboard.parent_guidance);
   } else {
-    dashEls.parentGuidance.className = "stack empty-state";
-    dashEls.parentGuidance.textContent = dashboardTranslations[session.lang || "en"].noParent;
+    dashEls.guardianSection.classList.add("hidden");
   }
 }
 
