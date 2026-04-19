@@ -357,15 +357,10 @@ body[data-mode="parent"] .score-core {
   font-weight: 700;
 }
 
-.profile-grid,
 .metrics-grid,
 .charts-grid {
   display: grid;
   gap: 20px;
-}
-
-.profile-grid {
-  grid-template-columns: repeat(5, 1fr);
 }
 
 .metrics-grid {
@@ -461,7 +456,6 @@ ul {
   .auth-layout,
   .two-column,
   .score-card,
-  .profile-grid,
   .metrics-grid,
   .charts-grid,
   .dashboard-topbar {

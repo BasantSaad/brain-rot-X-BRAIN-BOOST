@@ -2,7 +2,7 @@ const dashboardTranslations = {
   en: {
     dashboardEyebrow: "Bboo dashboard",
     switchAccount: "Switch account",
-    liveOverview: "Account overview",
+    brainState: "Brain state",
     scoreLabel: "Focus score",
     habitsTitle: "Habit booster",
     habitsSubtitle: "Small actions that train attention every day.",
@@ -17,7 +17,7 @@ const dashboardTranslations = {
   ar: {
     dashboardEyebrow: "لوحة Bboo",
     switchAccount: "تبديل الحساب",
-    liveOverview: "نظرة الحساب",
+    brainState: "حالة الدماغ",
     scoreLabel: "درجة التركيز",
     habitsTitle: "معزز العادات",
     habitsSubtitle: "خطوات صغيرة تدرب الانتباه كل يوم.",
@@ -43,7 +43,6 @@ const dashEls = {
   headline: document.getElementById("headline"),
   focusScore: document.getElementById("focusScore"),
   stateBadge: document.getElementById("stateBadge"),
-  profileSummary: document.getElementById("profileSummary"),
   metrics: document.getElementById("metrics"),
   charts: document.getElementById("charts"),
   habits: document.getElementById("habits"),
@@ -63,10 +62,6 @@ function applyDashboardI18n(language) {
 
 function queryFromSession() {
   return new URLSearchParams(session);
-}
-
-function profileCard(field) {
-  return `<article class="glass profile-card"><small>${field.label}</small><strong>${field.value}</strong></article>`;
 }
 
 function metricCard(metric) {
@@ -137,10 +132,10 @@ async function loadDashboard() {
   const plan = await planRes.json();
 
   dashEls.topbarName.textContent = `${session.first_name || "Bboo"} ${session.last_name || ""}`.trim();
+  dashEls.topbarName.textContent = session.first_name || "Bboo";
   dashEls.headline.textContent = dashboard.headline;
   dashEls.focusScore.textContent = dashboard.focus_score;
   dashEls.stateBadge.textContent = dashboard.current_state;
-  dashEls.profileSummary.innerHTML = dashboard.profile_summary.map(profileCard).join("");
   dashEls.metrics.innerHTML = dashboard.metrics.map(metricCard).join("");
   dashEls.charts.innerHTML = dashboard.charts.map(chartCard).join("");
   dashEls.habits.innerHTML = dashboard.habits.map(habitCard).join("");

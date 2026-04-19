@@ -40,11 +40,7 @@ class FocusCoachEngine:
         habits = self._habits(profile, language)
         metrics = self._metrics(profile, score, language, mode)
         guidance = self._parent_guidance(language)
-        headline = self._text(
-            language,
-            en=f"{profile.account.first_name}'s profile is live and Bboo is tuning focus around real behavior.",
-            ar=f"تم تفعيل ملف {profile.account.first_name} ويقوم Bboo الآن بضبط التركيز بناء على السلوك الحقيقي.",
-        )
+        headline = self._brain_banner(profile.account.first_name, score, language)
 
         return DashboardSnapshot(
             generated_at=utc_now_iso(),
@@ -197,6 +193,15 @@ class FocusCoachEngine:
 
     def _charts(self, profile: UserProfile, language: str, mode: str) -> list[ChartSeries]:
         focus_points = [
+            TrendPoint("Mon", 2.4),
+            TrendPoint("Tue", 3.1),
+            TrendPoint("Wed", 2.8),
+            TrendPoint("Thu", 3.6),
+            TrendPoint("Fri", 4.2),
+            TrendPoint("Sat", 4.8),
+            TrendPoint("Sun", round(max(1.8, profile.completed_focus_sessions_last_week * 0.55), 1)),
+        ]
+        distraction_points = [
             TrendPoint("Mon", 44),
             TrendPoint("Tue", 51),
             TrendPoint("Wed", 49),
@@ -205,23 +210,17 @@ class FocusCoachEngine:
             TrendPoint("Sat", 69),
             TrendPoint("Sun", self._focus_score(profile)),
         ]
-        distraction_points = [
-            TrendPoint("Focus", max(10, 100 - profile.social_media_hours * 12)),
-            TrendPoint("Social", min(100, profile.social_media_hours * 14)),
-            TrendPoint("Planning", profile.planning_consistency),
-            TrendPoint("Sleep", min(100, profile.sleep_hours * 12)),
-        ]
         charts = [
             ChartSeries(
-                title=self._text(language, en="Weekly focus recovery", ar="استعادة التركيز خلال الأسبوع"),
-                subtitle=self._text(language, en="Daily score trend after login and interventions", ar="اتجاه الدرجة اليومية بعد تسجيل الدخول والتدخلات"),
-                chart_type="line",
+                title=self._text(language, en="Focus hours in the past 7 days", ar="ساعات التركيز في آخر 7 أيام"),
+                subtitle=self._text(language, en="Hours of focused work or study per day", ar="ساعات العمل أو الدراسة المركزة لكل يوم"),
+                chart_type="bar",
                 points=focus_points,
             ),
             ChartSeries(
-                title=self._text(language, en="Behavior balance", ar="توازن السلوك"),
-                subtitle=self._text(language, en="Compare positive routines against distraction pressure", ar="قارن بين الروتين الإيجابي وضغط التشتت"),
-                chart_type="bar",
+                title=self._text(language, en="Weekly focus score", ar="درجة التركيز الأسبوعية"),
+                subtitle=self._text(language, en="Daily score trend after login and interventions", ar="اتجاه الدرجة اليومية بعد تسجيل الدخول والتدخلات"),
+                chart_type="line",
                 points=distraction_points,
             ),
         ]
@@ -262,6 +261,19 @@ class FocusCoachEngine:
         if score >= 60:
             return self._text(language, en="Recovering", ar="يتحسن")
         return self._text(language, en="Overloaded", ar="مرهق رقميا")
+
+    def _brain_banner(self, first_name: str, score: int, language: str) -> str:
+        if score >= 60:
+            return self._text(
+                language,
+                en=f"{first_name}, your brain is currently Boost.",
+                ar=f"{first_name}، دماغك الآن في حالة Boost.",
+            )
+        return self._text(
+            language,
+            en=f"{first_name}, your brain is currently Rot.",
+            ar=f"{first_name}، دماغك الآن في حالة Rot.",
+        )
 
     def _permission_note(self, profile: UserProfile, language: str) -> str:
         if profile.permissions_granted:
