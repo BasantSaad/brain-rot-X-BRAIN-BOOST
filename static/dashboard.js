@@ -3,7 +3,6 @@ const dashboardTranslations = {
     dashboardEyebrow: "Bboo dashboard",
     switchAccount: "Switch account",
     brainState: "Brain state",
-    scoreLabel: "Focus score",
     habitsTitle: "Habit booster",
     habitsSubtitle: "Small actions that train attention every day.",
     planTitle: "Personalized plan",
@@ -17,12 +16,32 @@ const dashboardTranslations = {
     minutesLabel: "Session minutes",
     stepsLabel: "Steps",
     savePlan: "Save my edits",
+    saveProfile: "Save profile",
+    profileTitle: "Profile settings",
+    profileSubtitle: "Update the account details that shape your dashboard and saved plan.",
+    sessionTitle: "Session status",
+    sessionSubtitle: "This dashboard now uses a basic MySQL-backed session token.",
+    sessionHintTitle: "How it works",
+    sessionHintBody: "When you log in, the backend creates a token, stores it in MySQL, and the browser sends it with each request.",
+    scoreLabel: "Focus score",
+    firstName: "First name",
+    lastName: "Last name",
+    email: "Email",
+    country: "Country",
+    language: "Language",
+    audience: "Audience",
+    view: "Dashboard",
+    permissions: "Device permission",
+    loading: "Loading your dashboard...",
+    savePlanSuccess: "Your plan was saved in MySQL.",
+    saveProfileSuccess: "Your profile was updated successfully.",
+    requestError: "We could not reach the server. Please try again.",
+    loggedOut: "Your session ended. Please sign in again.",
   },
   ar: {
     dashboardEyebrow: "لوحة Bboo",
     switchAccount: "تبديل الحساب",
     brainState: "حالة الدماغ",
-    scoreLabel: "درجة التركيز",
     habitsTitle: "معزز العادات",
     habitsSubtitle: "خطوات صغيرة تدرب الانتباه كل يوم.",
     planTitle: "الخطة الشخصية",
@@ -36,14 +55,34 @@ const dashboardTranslations = {
     minutesLabel: "دقائق الجلسة",
     stepsLabel: "الخطوات",
     savePlan: "احفظ تعديلاتي",
+    saveProfile: "احفظ الملف",
+    profileTitle: "إعدادات الملف",
+    profileSubtitle: "حدّث بيانات الحساب التي تشكل لوحتك وخطتك المحفوظة.",
+    sessionTitle: "حالة الجلسة",
+    sessionSubtitle: "تستخدم هذه اللوحة الآن رمز جلسة أساسي محفوظا في MySQL.",
+    sessionHintTitle: "كيف تعمل",
+    sessionHintBody: "عند تسجيل الدخول ينشئ الخادم رمزا، ويحفظه في MySQL، ثم يرسله المتصفح مع كل طلب.",
+    scoreLabel: "درجة التركيز",
+    firstName: "الاسم الأول",
+    lastName: "اسم العائلة",
+    email: "البريد الإلكتروني",
+    country: "الدولة",
+    language: "اللغة",
+    audience: "الفئة",
+    view: "نوع اللوحة",
+    permissions: "صلاحية الجهاز",
+    loading: "يجري تحميل اللوحة...",
+    savePlanSuccess: "تم حفظ الخطة في MySQL.",
+    saveProfileSuccess: "تم تحديث الملف بنجاح.",
+    requestError: "تعذر الوصول إلى الخادم. حاول مرة أخرى.",
+    loggedOut: "انتهت جلستك. سجل الدخول مرة أخرى.",
   },
 };
 
 const sessionKey = "bboo-session";
-const planEditKey = "bboo-plan-edits";
 const session = JSON.parse(localStorage.getItem(sessionKey) || "null");
 
-if (!session) {
+if (!session?.token) {
   window.location.href = "/";
 }
 
@@ -60,6 +99,17 @@ const dashEls = {
   parentGuidance: document.getElementById("parentGuidance"),
   guardianSection: document.getElementById("guardianSection"),
   backToAuth: document.getElementById("backToAuth"),
+  profileMessage: document.getElementById("profileMessage"),
+  sessionMessage: document.getElementById("sessionMessage"),
+  profileFirstName: document.getElementById("profileFirstName"),
+  profileLastName: document.getElementById("profileLastName"),
+  profileEmail: document.getElementById("profileEmail"),
+  profileCountry: document.getElementById("profileCountry"),
+  profileLanguage: document.getElementById("profileLanguage"),
+  profileAudience: document.getElementById("profileAudience"),
+  profileMode: document.getElementById("profileMode"),
+  profilePermissions: document.getElementById("profilePermissions"),
+  saveProfile: document.getElementById("saveProfile"),
 };
 
 function t(key) {
@@ -74,8 +124,49 @@ function applyDashboardI18n(language) {
   });
 }
 
-function queryFromSession() {
-  return new URLSearchParams(session);
+function authHeaders() {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session.token}`,
+  };
+}
+
+async function apiRequest(url, options = {}) {
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${session.token}`,
+      },
+    });
+  } catch {
+    throw new Error(t("requestError"));
+  }
+
+  let body = {};
+  try {
+    body = await response.json();
+  } catch {
+    body = {};
+  }
+
+  if (!response.ok) {
+    const message = body.error || t("requestError");
+    if (response.status === 401) {
+      localStorage.removeItem(sessionKey);
+      window.location.href = "/";
+      throw new Error(message || t("loggedOut"));
+    }
+    throw new Error(message);
+  }
+  return body;
+}
+
+function setPanelMessage(element, message, isError = false) {
+  element.textContent = message;
+  element.classList.toggle("is-error", isError);
 }
 
 function metricCard(metric) {
@@ -91,24 +182,20 @@ function insightCard(insight) {
 }
 
 function planCard(plan) {
-  const savedPlan = JSON.parse(localStorage.getItem(planEditKey) || "null");
-  const sessionMinutes = savedPlan?.minutes || plan.recommended_session_minutes;
-  const focusTheme = savedPlan?.theme || plan.focus_theme;
-  const steps = savedPlan?.steps || plan.steps;
   return `
     <div class="plan-card editable-plan">
       <strong>${plan.title}</strong>
       <label class="edit-field">
         <span>${t("themeLabel")}</span>
-        <input id="planThemeInput" value="${focusTheme}">
+        <input id="planThemeInput" value="${plan.focus_theme}">
       </label>
       <label class="edit-field">
         <span>${t("minutesLabel")}</span>
-        <input id="planMinutesInput" type="number" min="10" max="120" value="${sessionMinutes}">
+        <input id="planMinutesInput" type="number" min="10" max="120" value="${plan.recommended_session_minutes}">
       </label>
       <label class="edit-field">
         <span>${t("stepsLabel")}</span>
-        <textarea id="planStepsInput" rows="7">${steps.join("\n")}</textarea>
+        <textarea id="planStepsInput" rows="7">${plan.steps.join("\n")}</textarea>
       </label>
       <p><strong>${plan.attention_game}</strong></p>
       <button id="savePlanEdits" class="ghost-btn save-plan-btn" type="button">${t("savePlan")}</button>
@@ -175,57 +262,138 @@ function chartCard(chart) {
   return `<article class="glass chart-card"><h3>${chart.title}</h3><p>${chart.subtitle}</p>${visual}</article>`;
 }
 
+function applyProfileForm(profile) {
+  dashEls.profileFirstName.value = profile.first_name || "";
+  dashEls.profileLastName.value = profile.last_name || "";
+  dashEls.profileEmail.value = profile.email || "";
+  dashEls.profileCountry.value = profile.country || "";
+  dashEls.profileLanguage.value = profile.lang || "en";
+  dashEls.profileAudience.value = profile.audience || "student";
+  dashEls.profileMode.value = profile.mode || "user";
+  dashEls.profilePermissions.checked = String(profile.permissions) === "true";
+}
+
+function updateSession(nextSession) {
+  Object.assign(session, nextSession);
+  localStorage.setItem(sessionKey, JSON.stringify(session));
+}
+
 function attachPlanEditor(plan) {
   const saveButton = document.getElementById("savePlanEdits");
   if (!saveButton) {
     return;
   }
-  saveButton.addEventListener("click", () => {
+  saveButton.addEventListener("click", async () => {
     const steps = document.getElementById("planStepsInput").value
       .split("\n")
       .map((step) => step.trim())
       .filter(Boolean);
-    localStorage.setItem(planEditKey, JSON.stringify({
-      theme: document.getElementById("planThemeInput").value.trim() || plan.focus_theme,
-      minutes: Number(document.getElementById("planMinutesInput").value) || plan.recommended_session_minutes,
-      steps,
-    }));
+    try {
+      setPanelMessage(dashEls.sessionMessage, t("loading"));
+      const body = await apiRequest("/api/plan", {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          title: plan.title,
+          recommended_session_minutes: Number(document.getElementById("planMinutesInput").value),
+          focus_theme: document.getElementById("planThemeInput").value.trim(),
+          steps,
+          attention_game: plan.attention_game,
+        }),
+      });
+      dashEls.plan.innerHTML = planCard(body.plan);
+      attachPlanEditor(body.plan);
+      setPanelMessage(dashEls.sessionMessage, t("savePlanSuccess"));
+    } catch (error) {
+      setPanelMessage(dashEls.sessionMessage, error.message, true);
+      if (!localStorage.getItem(sessionKey)) {
+        window.location.href = "/";
+      }
+    }
   });
 }
 
 async function loadDashboard() {
   applyDashboardI18n(session.lang || "en");
   document.body.dataset.mode = session.mode || "user";
-  const query = queryFromSession();
-  const [dashboardRes, planRes] = await Promise.all([
-    fetch(`/api/dashboard?${query}`),
-    fetch(`/api/plan?${query}`),
-  ]);
+  setPanelMessage(dashEls.sessionMessage, t("loading"));
+  const query = new URLSearchParams({
+    lang: session.lang || "en",
+    mode: session.mode || "user",
+  });
 
-  const dashboard = await dashboardRes.json();
-  const plan = await planRes.json();
+  try {
+    const [profileBody, dashboard, planBody] = await Promise.all([
+      apiRequest("/api/profile"),
+      apiRequest(`/api/dashboard?${query.toString()}`),
+      apiRequest(`/api/plan?${query.toString()}`),
+    ]);
 
-  dashEls.topbarName.textContent = session.first_name || "Bboo";
-  dashEls.headline.textContent = dashboard.headline;
-  dashEls.focusScore.textContent = dashboard.focus_score;
-  dashEls.stateBadge.textContent = dashboard.current_state;
-  dashEls.metrics.innerHTML = dashboard.metrics.map(metricCard).join("");
-  dashEls.charts.innerHTML = dashboard.charts.map(chartCard).join("");
-  dashEls.habits.innerHTML = dashboard.habits.map(habitCard).join("");
-  dashEls.insights.innerHTML = dashboard.insights.map(insightCard).join("");
-  dashEls.plan.innerHTML = planCard(plan);
-  attachPlanEditor(plan);
+    const profile = profileBody.profile;
+    applyProfileForm(profile);
+    dashEls.topbarName.textContent = session.first_name || profile.first_name || "Bboo";
+    dashEls.headline.textContent = dashboard.headline;
+    dashEls.focusScore.textContent = dashboard.focus_score;
+    dashEls.stateBadge.textContent = dashboard.current_state;
+    dashEls.metrics.innerHTML = dashboard.metrics.map(metricCard).join("");
+    dashEls.charts.innerHTML = dashboard.charts.map(chartCard).join("");
+    dashEls.habits.innerHTML = dashboard.habits.map(habitCard).join("");
+    dashEls.insights.innerHTML = dashboard.insights.map(insightCard).join("");
+    dashEls.plan.innerHTML = planCard(planBody);
+    attachPlanEditor(planBody);
 
-  if (dashboard.parent_guidance) {
-    dashEls.guardianSection.classList.remove("hidden");
-    dashEls.parentGuidance.className = "stack";
-    dashEls.parentGuidance.innerHTML = guidanceCard(dashboard.parent_guidance);
-  } else {
-    dashEls.guardianSection.classList.add("hidden");
+    if (dashboard.parent_guidance) {
+      dashEls.guardianSection.classList.remove("hidden");
+      dashEls.parentGuidance.className = "stack";
+      dashEls.parentGuidance.innerHTML = guidanceCard(dashboard.parent_guidance);
+    } else {
+      dashEls.guardianSection.classList.add("hidden");
+    }
+    setPanelMessage(dashEls.sessionMessage, "");
+  } catch (error) {
+    setPanelMessage(dashEls.sessionMessage, error.message, true);
+    if (!localStorage.getItem(sessionKey)) {
+      return;
+    }
   }
 }
 
-dashEls.backToAuth.addEventListener("click", () => {
+dashEls.saveProfile.addEventListener("click", async () => {
+  try {
+    setPanelMessage(dashEls.profileMessage, t("loading"));
+    const body = await apiRequest("/api/profile", {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        first_name: dashEls.profileFirstName.value.trim(),
+        last_name: dashEls.profileLastName.value.trim(),
+        country: dashEls.profileCountry.value.trim(),
+        lang: dashEls.profileLanguage.value,
+        audience: dashEls.profileAudience.value,
+        mode: dashEls.profileMode.value,
+        permissions: String(dashEls.profilePermissions.checked),
+      }),
+    });
+    updateSession(body.session);
+    applyDashboardI18n(session.lang || "en");
+    document.body.dataset.mode = session.mode || "user";
+    dashEls.topbarName.textContent = session.first_name || "Bboo";
+    setPanelMessage(dashEls.profileMessage, t("saveProfileSuccess"));
+    await loadDashboard();
+  } catch (error) {
+    setPanelMessage(dashEls.profileMessage, error.message, true);
+    if (!localStorage.getItem(sessionKey)) {
+      return;
+    }
+  }
+});
+
+dashEls.backToAuth.addEventListener("click", async () => {
+  try {
+    await apiRequest("/api/logout", { method: "POST" });
+  } catch {
+    // Ignore logout failures and clear local state anyway.
+  }
   localStorage.removeItem(sessionKey);
   window.location.href = "/";
 });

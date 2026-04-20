@@ -5,9 +5,11 @@ import hmac
 import os
 import secrets
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from json import dumps, loads
 from typing import Any
 
-from shared.schemas import AccountProfile, UserProfile
+from shared.schemas import AccountProfile, FocusPlan, UserProfile
 
 try:
     import mysql.connector
@@ -27,6 +29,7 @@ class MySQLConfig:
     user: str = os.getenv("BBOO_DB_USER", "root")
     password: str = os.getenv("BBOO_DB_PASSWORD", "")
     database: str = os.getenv("BBOO_DB_NAME", "bboo")
+    session_ttl_hours: int = int(os.getenv("BBOO_SESSION_TTL_HOURS", "24"))
 
 
 class MySQLRepository:
@@ -74,6 +77,38 @@ class MySQLRepository:
                     completed_focus_sessions_last_week INT NOT NULL,
                     generated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     CONSTRAINT fk_behavior_user
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS focus_plans (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    user_id BIGINT NOT NULL UNIQUE,
+                    title VARCHAR(255) NOT NULL,
+                    recommended_session_minutes INT NOT NULL,
+                    focus_theme VARCHAR(255) NOT NULL,
+                    steps_json JSON NOT NULL,
+                    attention_game VARCHAR(255) NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_focus_plan_user
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_sessions (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    user_id BIGINT NOT NULL,
+                    session_token VARCHAR(128) NOT NULL UNIQUE,
+                    expires_at DATETIME NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_session_user
                         FOREIGN KEY (user_id) REFERENCES users(id)
                         ON DELETE CASCADE
                 )
@@ -142,7 +177,7 @@ class MySQLRepository:
                 ),
             )
             connection.commit()
-            return self._session_payload(user_id=user_id, user_row={
+            return self._create_session_payload(cursor=cursor, user_id=user_id, user_row={
                 "first_name": profile.account.first_name,
                 "last_name": profile.account.last_name,
                 "email": profile.account.email,
@@ -190,7 +225,65 @@ class MySQLRepository:
                 connection.commit()
                 user["preferred_language"] = language
 
-            return self._session_payload(user_id=user["id"], user_row=user)
+            return self._create_session_payload(cursor=cursor, user_id=user["id"], user_row=user)
+        finally:
+            connection.close()
+
+    def load_session(self, token: str) -> dict[str, Any]:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT
+                    s.user_id,
+                    s.session_token,
+                    s.expires_at,
+                    u.first_name,
+                    u.last_name,
+                    u.email,
+                    u.country,
+                    u.preferred_language,
+                    u.audience,
+                    u.role,
+                    u.permissions_granted
+                FROM user_sessions AS s
+                JOIN users AS u ON u.id = s.user_id
+                WHERE s.session_token = %s
+                """,
+                (token,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise ValueError("Your session was not found. Please log in again.")
+            expires_at = row["expires_at"]
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at <= datetime.now(timezone.utc):
+                cursor.execute("DELETE FROM user_sessions WHERE session_token = %s", (token,))
+                connection.commit()
+                raise ValueError("Your session has expired. Please log in again.")
+            return {
+                "user_id": int(row["user_id"]),
+                "token": row["session_token"],
+                "first_name": row["first_name"],
+                "last_name": row["last_name"],
+                "email": row["email"],
+                "country": row["country"],
+                "lang": row["preferred_language"],
+                "audience": row["audience"],
+                "mode": row["role"],
+                "permissions": str(bool(row["permissions_granted"])).lower(),
+            }
+        finally:
+            connection.close()
+
+    def delete_session(self, token: str) -> None:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor()
+            cursor.execute("DELETE FROM user_sessions WHERE session_token = %s", (token,))
+            connection.commit()
         finally:
             connection.close()
 
@@ -245,6 +338,130 @@ class MySQLRepository:
         finally:
             connection.close()
 
+    def load_profile_by_user_id(self, user_id: int) -> UserProfile | None:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT
+                    u.id,
+                    u.first_name,
+                    u.last_name,
+                    u.email,
+                    u.country,
+                    u.preferred_language,
+                    u.role,
+                    u.permissions_granted,
+                    u.audience,
+                    b.daily_notifications,
+                    b.social_media_hours,
+                    b.sleep_hours,
+                    b.planning_consistency,
+                    b.completed_focus_sessions_last_week
+                FROM users AS u
+                JOIN behavior_profiles AS b ON b.user_id = u.id
+                WHERE u.id = %s
+                """,
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return self._user_profile_from_row(row)
+        finally:
+            connection.close()
+
+    def update_profile(self, user_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                UPDATE users
+                SET
+                    first_name = %s,
+                    last_name = %s,
+                    country = %s,
+                    preferred_language = %s,
+                    audience = %s,
+                    role = %s,
+                    permissions_granted = %s
+                WHERE id = %s
+                """,
+                (
+                    payload["first_name"],
+                    payload["last_name"],
+                    payload["country"],
+                    payload["lang"],
+                    payload["audience"],
+                    payload["mode"],
+                    str(payload["permissions"]).lower() == "true",
+                    user_id,
+                ),
+            )
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    first_name,
+                    last_name,
+                    email,
+                    country,
+                    preferred_language,
+                    audience,
+                    role,
+                    permissions_granted
+                FROM users
+                WHERE id = %s
+                """,
+                (user_id,),
+            )
+            user = cursor.fetchone()
+            connection.commit()
+            return self._session_payload(user_id=user_id, user_row=user, token=payload.get("token"))
+        finally:
+            connection.close()
+
+    def load_focus_plan(self, user_id: int) -> FocusPlan | None:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT title, recommended_session_minutes, focus_theme, steps_json, attention_game, updated_at
+                FROM focus_plans
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            steps = row["steps_json"] if isinstance(row["steps_json"], list) else loads(row["steps_json"])
+            return FocusPlan(
+                generated_at=row["updated_at"].replace(tzinfo=timezone.utc).isoformat()
+                if row["updated_at"].tzinfo is None
+                else row["updated_at"].astimezone(timezone.utc).isoformat(),
+                title=row["title"],
+                recommended_session_minutes=int(row["recommended_session_minutes"]),
+                focus_theme=row["focus_theme"],
+                steps=steps,
+                attention_game=row["attention_game"],
+            )
+        finally:
+            connection.close()
+
+    def save_focus_plan(self, user_id: int, plan: FocusPlan) -> FocusPlan:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor()
+            self._upsert_focus_plan(cursor=cursor, user_id=user_id, plan=plan)
+            connection.commit()
+            return self.load_focus_plan(user_id) or plan
+        finally:
+            connection.close()
+
     def _ensure_database(self) -> None:
         connection = self._connection()
         try:
@@ -281,9 +498,10 @@ class MySQLRepository:
         candidate_hash, _ = self._hash_password(password, salt)
         return hmac.compare_digest(candidate_hash, expected_hash)
 
-    def _session_payload(self, user_id: int, user_row: dict[str, Any]) -> dict[str, Any]:
+    def _session_payload(self, user_id: int, user_row: dict[str, Any], token: str | None = None) -> dict[str, Any]:
         return {
             "user_id": user_id,
+            "token": token,
             "first_name": user_row["first_name"],
             "last_name": user_row["last_name"],
             "email": user_row["email"],
@@ -301,3 +519,57 @@ class MySQLRepository:
             "child": "child",
         }
         return mapping.get(audience, "teen")
+
+    def _create_session_payload(self, cursor, user_id: int, user_row: dict[str, Any]) -> dict[str, Any]:
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=self.config.session_ttl_hours)
+        cursor.execute("DELETE FROM user_sessions WHERE user_id = %s", (user_id,))
+        cursor.execute(
+            """
+            INSERT INTO user_sessions (user_id, session_token, expires_at)
+            VALUES (%s, %s, %s)
+            """,
+            (user_id, token, expires_at.replace(tzinfo=None)),
+        )
+        return self._session_payload(user_id=user_id, user_row=user_row, token=token)
+
+    def _upsert_focus_plan(self, cursor, user_id: int, plan: FocusPlan) -> None:
+        cursor.execute(
+            """
+            INSERT INTO focus_plans (user_id, title, recommended_session_minutes, focus_theme, steps_json, attention_game)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                title = VALUES(title),
+                recommended_session_minutes = VALUES(recommended_session_minutes),
+                focus_theme = VALUES(focus_theme),
+                steps_json = VALUES(steps_json),
+                attention_game = VALUES(attention_game)
+            """,
+            (
+                user_id,
+                plan.title,
+                plan.recommended_session_minutes,
+                plan.focus_theme,
+                dumps(plan.steps),
+                plan.attention_game,
+            ),
+        )
+
+    def _user_profile_from_row(self, row: dict[str, Any]) -> UserProfile:
+        return UserProfile(
+            account=AccountProfile(
+                first_name=row["first_name"],
+                last_name=row["last_name"],
+                email=row["email"],
+                country=row["country"],
+                preferred_language=row["preferred_language"],
+                role=row["role"],
+                age_group=self._age_group_for_audience(row["audience"]),
+            ),
+            permissions_granted=bool(row["permissions_granted"]),
+            daily_notifications=int(row["daily_notifications"]),
+            social_media_hours=float(row["social_media_hours"]),
+            sleep_hours=float(row["sleep_hours"]),
+            planning_consistency=int(row["planning_consistency"]),
+            completed_focus_sessions_last_week=int(row["completed_focus_sessions_last_week"]),
+        )

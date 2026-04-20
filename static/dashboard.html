@@ -46,6 +46,75 @@
         <section class="two-column">
           <article class="glass section-card">
             <div class="section-head">
+              <h3 data-i18n="profileTitle">Profile settings</h3>
+              <p data-i18n="profileSubtitle">Update the account details that shape your dashboard and saved plan.</p>
+            </div>
+            <p id="profileMessage" class="panel-message" aria-live="polite"></p>
+            <form id="profileForm" class="control-grid">
+              <label>
+                <span data-i18n="firstName">First name</span>
+                <input id="profileFirstName" required />
+              </label>
+              <label>
+                <span data-i18n="lastName">Last name</span>
+                <input id="profileLastName" required />
+              </label>
+              <label>
+                <span data-i18n="email">Email</span>
+                <input id="profileEmail" disabled />
+              </label>
+              <label>
+                <span data-i18n="country">Country</span>
+                <input id="profileCountry" required />
+              </label>
+              <label>
+                <span data-i18n="language">Language</span>
+                <select id="profileLanguage">
+                  <option value="en">English</option>
+                  <option value="ar">العربية</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="audience">Audience</span>
+                <select id="profileAudience">
+                  <option value="student">Student</option>
+                  <option value="young-adult">Young Adult</option>
+                  <option value="child">Child</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="view">Dashboard</span>
+                <select id="profileMode">
+                  <option value="user">User</option>
+                  <option value="parent">Parent</option>
+                </select>
+              </label>
+              <label class="toggle">
+                <span data-i18n="permissions">Device permission</span>
+                <input id="profilePermissions" type="checkbox" />
+              </label>
+            </form>
+            <button id="saveProfile" class="ghost-btn save-panel-btn" type="button" data-i18n="saveProfile">Save profile</button>
+          </article>
+
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3 data-i18n="sessionTitle">Session status</h3>
+              <p data-i18n="sessionSubtitle">This dashboard now uses a basic MySQL-backed session token.</p>
+            </div>
+            <div class="stack">
+              <div class="insight-card">
+                <strong data-i18n="sessionHintTitle">How it works</strong>
+                <p data-i18n="sessionHintBody">When you log in, the backend creates a token, stores it in MySQL, and the browser sends it with each request.</p>
+              </div>
+              <div id="sessionMessage" class="panel-message"></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="two-column">
+          <article class="glass section-card">
+            <div class="section-head">
               <h3 data-i18n="habitsTitle">Habit booster</h3>
               <p data-i18n="habitsSubtitle">Small actions that train attention every day.</p>
             </div>
@@ -70,7 +139,7 @@
             <div id="insights" class="stack"></div>
           </article>
 
-          <article class="glass section-card">
+          <article id="guardianSection" class="glass section-card">
             <div class="section-head">
               <h3 data-i18n="parentTitle">Guardian guidance</h3>
               <p data-i18n="parentSubtitle">Healthy monitoring for younger users.</p>
@@ -81,6 +150,6 @@
       </main>
     </div>
 
-    <script src="/dashboard.js"></script>
+    <script src="/dashboard.js?v=2"></script>
   </body>
 </html>

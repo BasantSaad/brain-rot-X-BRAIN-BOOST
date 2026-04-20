@@ -196,6 +196,26 @@ h1 {
   margin-bottom: 18px;
 }
 
+.auth-message {
+  min-height: 24px;
+  margin: 0 0 18px;
+  color: var(--accent-bright);
+}
+
+.panel-message {
+  min-height: 24px;
+  margin: 0 0 16px;
+  color: var(--accent-bright);
+}
+
+.auth-message.is-error {
+  color: #ffd2d2;
+}
+
+.panel-message.is-error {
+  color: #ffd2d2;
+}
+
 .tab-btn,
 .ghost-btn {
   border: 1px solid var(--line);
@@ -430,6 +450,10 @@ body[data-mode="parent"] .score-core {
 
 .save-plan-btn {
   justify-self: start;
+}
+
+.save-panel-btn {
+  margin-top: 16px;
 }
 
 .progress-track {

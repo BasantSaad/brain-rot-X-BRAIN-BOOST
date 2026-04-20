@@ -20,11 +20,15 @@ const authTranslations = {
     permissions: "Device permission",
     continue: "Continue to dashboard",
     enterDashboard: "Enter dashboard",
+    processing: "Processing your request...",
+    genericError: "We could not complete that request. Please try again.",
+    createSuccess: "Account created. Loading your dashboard...",
+    loginSuccess: "Login successful. Loading your dashboard...",
   },
   ar: {
     eyebrow: "استعادة تركيز كهربائية",
     title: "يبدأ Bboo بحسابك أولا ثم يفتح عالم التركيز في الصفحة التالية.",
-    subtitle: "أدخل بياناتك المهمة أولا ثم أنشئ الحساب أو سجّل الدخول. بعد ذلك ينقلك Bboo إلى صفحة لوحة منفصلة فيها الرسوم والعادات والإرشاد.",
+    subtitle: "أدخل بياناتك المهمة أولا ثم أنشئ الحساب أو سجل الدخول. بعد ذلك ينقلك Bboo إلى صفحة لوحة منفصلة فيها الرسوم والعادات والإرشاد.",
     createAccount: "إنشاء حساب",
     login: "تسجيل الدخول",
     profileTitle: "إنشاء ملف الحساب",
@@ -42,6 +46,10 @@ const authTranslations = {
     permissions: "صلاحية الجهاز",
     continue: "المتابعة إلى اللوحة",
     enterDashboard: "الدخول إلى اللوحة",
+    processing: "يجري تنفيذ طلبك...",
+    genericError: "لم نتمكن من إكمال الطلب. حاول مرة أخرى.",
+    createSuccess: "تم إنشاء الحساب. جاري فتح اللوحة...",
+    loginSuccess: "تم تسجيل الدخول. جاري فتح اللوحة...",
   },
 };
 
@@ -54,6 +62,7 @@ const authEls = {
   loginForm: document.getElementById("loginForm"),
   createLanguage: document.getElementById("createLanguage"),
   loginLanguage: document.getElementById("loginLanguage"),
+  authMessage: document.getElementById("authMessage"),
 };
 
 function applyAuthI18n(language) {
@@ -79,38 +88,82 @@ function saveSession(data) {
   window.location.href = "/dashboard.html";
 }
 
+function setMessage(message, isError = false) {
+  authEls.authMessage.textContent = message;
+  authEls.authMessage.classList.toggle("is-error", isError);
+}
+
+async function submitAuth(url, payload) {
+  const language = payload.lang || authEls.createLanguage.value || "en";
+  setMessage(authTranslations[language].processing);
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new Error(authTranslations[language].genericError);
+  }
+
+  let body = {};
+  try {
+    body = await response.json();
+  } catch {
+    body = {};
+  }
+
+  if (!response.ok) {
+    throw new Error(body.error || authTranslations[language].genericError);
+  }
+  return body.session;
+}
+
 authEls.createTab.addEventListener("click", () => setTab("create"));
 authEls.loginTab.addEventListener("click", () => setTab("login"));
 authEls.createLanguage.addEventListener("change", () => applyAuthI18n(authEls.createLanguage.value));
 authEls.loginLanguage.addEventListener("change", () => applyAuthI18n(authEls.loginLanguage.value));
 
-document.getElementById("createForm").addEventListener("submit", (event) => {
+document.getElementById("createForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  saveSession({
-    first_name: document.getElementById("createFirstName").value.trim(),
-    last_name: document.getElementById("createLastName").value.trim(),
-    email: document.getElementById("createEmail").value.trim(),
-    country: document.getElementById("createCountry").value.trim(),
-    lang: document.getElementById("createLanguage").value,
-    audience: document.getElementById("createAudience").value,
-    mode: document.getElementById("createMode").value,
-    permissions: String(document.getElementById("createPermissions").checked),
-  });
+  const language = document.getElementById("createLanguage").value;
+  try {
+    const session = await submitAuth("/api/register", {
+      first_name: document.getElementById("createFirstName").value.trim(),
+      last_name: document.getElementById("createLastName").value.trim(),
+      email: document.getElementById("createEmail").value.trim(),
+      password: document.getElementById("createPassword").value,
+      country: document.getElementById("createCountry").value.trim(),
+      lang: language,
+      audience: document.getElementById("createAudience").value,
+      mode: document.getElementById("createMode").value,
+      permissions: String(document.getElementById("createPermissions").checked),
+    });
+    setMessage(authTranslations[language].createSuccess);
+    saveSession(session);
+  } catch (error) {
+    setMessage(error.message, true);
+  }
 });
 
-document.getElementById("loginForm").addEventListener("submit", (event) => {
+document.getElementById("loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const language = document.getElementById("loginLanguage").value;
-  saveSession({
-    first_name: "Lina",
-    last_name: "Hassan",
-    email: document.getElementById("loginEmail").value.trim(),
-    country: "Egypt",
-    lang: language,
-    audience: "student",
-    mode: "user",
-    permissions: "true",
-  });
+  try {
+    const session = await submitAuth("/api/login", {
+      email: document.getElementById("loginEmail").value.trim(),
+      password: document.getElementById("loginPassword").value,
+      lang: language,
+    });
+    setMessage(authTranslations[language].loginSuccess);
+    saveSession(session);
+  } catch (error) {
+    setMessage(error.message, true);
+  }
 });
 
 setTab("create");
+setMessage("");
