@@ -17,6 +17,22 @@ It now includes:
 Use Python 3.11+ if possible.
 
 ```powershell
+pip install -r requirements.txt
+```
+
+Create a local `.env` file in the project root or set these environment variables first:
+
+```text
+BBOO_DB_HOST=127.0.0.1
+BBOO_DB_PORT=3306
+BBOO_DB_USER=root
+BBOO_DB_PASSWORD=your_mysql_password
+BBOO_DB_NAME=bboo
+```
+
+Then start the app:
+
+```powershell
 python app.py
 ```
 
@@ -25,6 +41,21 @@ Then open:
 ```text
 http://127.0.0.1:8000
 ```
+
+## XAMPP MySQL setup
+
+1. Open XAMPP Control Panel.
+2. Start `MySQL`.
+3. Open [http://localhost/phpmyadmin](http://localhost/phpmyadmin).
+4. If your MySQL `root` user has no password in XAMPP, set `BBOO_DB_PASSWORD=` as empty in `.env`.
+5. If your MySQL `root` user has a password, put that password in `.env`.
+6. Run the app with `python app.py`.
+
+The app will create the `bboo` database and its tables automatically on startup.
+
+If you prefer creating the schema manually in phpMyAdmin, import:
+
+- `storage/schema.sql`
 
 ## Real application flow
 
@@ -37,11 +68,15 @@ http://127.0.0.1:8000
 ## Main files
 
 - `app.py`
-  - lightweight API server and account/profile query handling
+  - lightweight API server plus MySQL-backed auth/profile endpoints
 - `agent/focus_engine.py`
   - personalization, charts, and guidance logic
 - `simulator/behavior_simulator.py`
   - mock account and behavior generation
+- `storage/mysql_repository.py`
+  - MySQL persistence, schema bootstrap, and password verification
+- `storage/schema.sql`
+  - optional phpMyAdmin/XAMPP import script for the MySQL schema
 - `shared/schemas.py`
   - domain contracts for profile, dashboard, charts, and plans
 - `static/`
