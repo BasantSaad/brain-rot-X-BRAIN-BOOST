@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from datetime import datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -42,17 +43,22 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         try:
-            if parsed.path == "/api/dashboard":
-                self._handle_dashboard(parsed.query)
-                return
-            if parsed.path == "/api/plan":
-                self._handle_plan(parsed.query)
-                return
-            if parsed.path == "/api/profile":
-                self._handle_profile()
-                return
-            if parsed.path == "/api/health":
-                self._send_json({"status": "ok", "service": "bboo-demo"})
+            routes = {
+                "/api/dashboard": lambda: self._handle_dashboard(parsed.query),
+                "/api/plan": lambda: self._handle_plan(parsed.query),
+                "/api/profile": self._handle_profile,
+                "/api/settings": self._handle_settings,
+                "/api/weekly-summary": self._handle_weekly_summary,
+                "/api/plan-history": self._handle_plan_history,
+                "/api/checkins": self._handle_checkins,
+                "/api/timers": self._handle_timers,
+                "/api/children": self._handle_children,
+                "/api/suggestions": self._handle_suggestions,
+                "/api/health": lambda: self._send_json({"status": "ok", "service": "bboo-phase1"}),
+            }
+            handler = routes.get(parsed.path)
+            if handler:
+                handler()
                 return
             if parsed.path == "/":
                 self.path = "/index.html"
@@ -62,23 +68,24 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         except RuntimeError as exc:
             self._send_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    def end_headers(self) -> None:
-        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-        self.send_header("Pragma", "no-cache")
-        self.send_header("Expires", "0")
-        super().end_headers()
-
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         try:
-            if parsed.path == "/api/register":
-                self._handle_register()
-                return
-            if parsed.path == "/api/login":
-                self._handle_login()
-                return
-            if parsed.path == "/api/logout":
-                self._handle_logout()
+            routes = {
+                "/api/register": self._handle_register,
+                "/api/login": self._handle_login,
+                "/api/logout": self._handle_logout,
+                "/api/logout-all-devices": self._handle_logout_all_devices,
+                "/api/password-reset/request": self._handle_password_reset_request,
+                "/api/password-reset/confirm": self._handle_password_reset_confirm,
+                "/api/checkins": self._handle_create_checkin,
+                "/api/focus-timer/start": self._handle_start_timer,
+                "/api/focus-timer/complete": self._handle_complete_timer,
+                "/api/guardian-link": self._handle_guardian_link,
+            }
+            handler = routes.get(parsed.path)
+            if handler:
+                handler()
                 return
             self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
         except ValueError as exc:
@@ -89,11 +96,14 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
     def do_PUT(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         try:
-            if parsed.path == "/api/profile":
-                self._handle_update_profile()
-                return
-            if parsed.path == "/api/plan":
-                self._handle_save_plan()
+            routes = {
+                "/api/profile": self._handle_update_profile,
+                "/api/plan": self._handle_save_plan,
+                "/api/settings": self._handle_update_settings,
+            }
+            handler = routes.get(parsed.path)
+            if handler:
+                handler()
                 return
             self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
         except ValueError as exc:
@@ -101,14 +111,65 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         except RuntimeError as exc:
             self._send_json({"error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    def end_headers(self) -> None:
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        super().end_headers()
+
     def _handle_dashboard(self, query: str) -> None:
         params = parse_qs(query)
         session = self._require_session()
         profile = self._build_profile(query, session["user_id"])
+        settings = self.repository.load_settings(session["user_id"])
         dashboard = self.engine.build_dashboard(
             profile=profile,
             language=self._single(params, "lang", session["lang"]),
             mode=self._single(params, "mode", session["mode"]),
+        )
+        dashboard.app_name = settings.app_name
+        dashboard.profile_summary.extend(
+            [
+                type(dashboard.profile_summary[0])("Study window", f"{settings.study_start_time} - {settings.study_end_time}"),
+                type(dashboard.profile_summary[0])("App name", settings.app_name),
+            ]
+        )
+        suggestions = self.repository.best_time_suggestions(session["user_id"])
+        history = self.repository.snapshot_history(session["user_id"])
+        if history:
+            dashboard.charts[0].points = [
+                type(dashboard.charts[0].points[0])(
+                    label=datetime.fromisoformat(item["created_at"]).strftime("%a"),
+                    value=round(item["focus_score"] / 20.0, 1),
+                )
+                for item in history[-7:]
+            ]
+        dashboard.insights.extend(
+            [
+                type(dashboard.insights[0])(
+                    title="Best study time",
+                    detail=f"Recent completed sessions point to {suggestions['best_study_time']} as your strongest study window.",
+                    action="Protect that window with a shield and start your timer there.",
+                ),
+                type(dashboard.insights[0])(
+                    title="Sleep protection time",
+                    detail=f"Your best screen cutoff is around {suggestions['best_sleep_protection_time']}.",
+                    action=f"Start winding down before {suggestions['best_sleep_protection_time']} and block high-scroll apps.",
+                ),
+            ]
+        )
+        if session["mode"] == "parent":
+            children = self.repository.linked_children(session["user_id"])
+            summary_lines = [f"{child['name']}: {child['weekly_summary']['headline']}" for child in children[:3]]
+            guidance = dashboard.parent_guidance
+            if guidance:
+                guidance.recommended_actions.extend(summary_lines or ["Link a child account to start weekly family summaries."])
+        self.repository.record_dashboard_snapshot(
+            user_id=session["user_id"],
+            focus_score=dashboard.focus_score,
+            chart_payload=[chart.to_dict() for chart in dashboard.charts],
+            mode=dashboard.mode,
+            language=dashboard.language,
         )
         self._send_json(dashboard.to_dict())
 
@@ -116,42 +177,85 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         params = parse_qs(query)
         session = self._require_session()
         profile = self._build_profile(query, session["user_id"])
+        settings = self.repository.load_settings(session["user_id"])
         plan = self.repository.load_focus_plan(session["user_id"]) or self.engine.build_personalized_plan(
             profile=profile,
             language=self._single(params, "lang", session["lang"]),
         )
+        if not self.repository.load_focus_plan(session["user_id"]):
+            plan.title = f"{settings.app_name} focus recovery plan"
         self._send_json(plan.to_dict())
 
     def _handle_profile(self) -> None:
         session = self._require_session()
         profile = self.repository.load_profile_by_user_id(session["user_id"])
+        extended = self.repository.load_extended_profile(session["user_id"])
         if profile is None:
             raise ValueError("We could not find your profile. Please log in again.")
-        self._send_json({
-            "profile": {
-                "first_name": profile.account.first_name,
-                "last_name": profile.account.last_name,
-                "email": profile.account.email,
-                "country": profile.account.country,
-                "lang": profile.account.preferred_language,
-                "audience": session["audience"],
-                "mode": profile.account.role,
-                "permissions": str(profile.permissions_granted).lower(),
+        self._send_json(
+            {
+                "profile": {
+                    "first_name": profile.account.first_name,
+                    "last_name": profile.account.last_name,
+                    "email": profile.account.email,
+                    "country": profile.account.country,
+                    "lang": profile.account.preferred_language,
+                    "audience": session["audience"],
+                    "mode": profile.account.role,
+                    "permissions": str(profile.permissions_granted).lower(),
+                    "age": extended.age,
+                    "schedule_type": extended.schedule_type,
+                    "goals": extended.goals,
+                    "distraction_triggers": extended.distraction_triggers,
+                    "sleep_target_hours": extended.sleep_target_hours,
+                    "mood_baseline": extended.mood_baseline,
+                    "energy_baseline": extended.energy_baseline,
+                }
             }
-        })
+        )
+
+    def _handle_settings(self) -> None:
+        session = self._require_session()
+        settings = self.repository.load_settings(session["user_id"])
+        self._send_json({"settings": settings.to_dict()})
+
+    def _handle_weekly_summary(self) -> None:
+        session = self._require_session()
+        summary = self.repository.weekly_summary(session["user_id"])
+        self._send_json({"summary": summary})
+
+    def _handle_plan_history(self) -> None:
+        session = self._require_session()
+        items = self.repository.load_plan_history(session["user_id"])
+        self._send_json({"items": items})
+
+    def _handle_checkins(self) -> None:
+        session = self._require_session()
+        self._send_json({"items": self.repository.recent_checkins(session["user_id"])})
+
+    def _handle_timers(self) -> None:
+        session = self._require_session()
+        self._send_json({"items": self.repository.recent_timers(session["user_id"])})
+
+    def _handle_children(self) -> None:
+        session = self._require_session()
+        self._send_json({"items": self.repository.linked_children(session["user_id"])})
+
+    def _handle_suggestions(self) -> None:
+        session = self._require_session()
+        self._send_json(self.repository.best_time_suggestions(session["user_id"]))
 
     def _handle_register(self) -> None:
         payload = self._read_json()
         required = ["first_name", "last_name", "email", "password", "country", "lang", "audience", "mode", "permissions"]
-        missing = [field for field in required if not str(payload.get(field, "")).strip()]
+        missing = [field for field in required if field != "permissions" and not str(payload.get(field, "")).strip()]
         if missing:
             self._send_json({"error": f"Missing required fields: {', '.join(missing)}"}, status=HTTPStatus.BAD_REQUEST)
             return
         self._validate_registration_payload(payload)
-
         profile = self.simulator.build_profile(
             audience=payload["audience"],
-            permissions_granted=str(payload["permissions"]).lower() == "true",
+            permissions_granted=str(payload.get("permissions", "true")).lower() == "true",
             first_name=payload["first_name"].strip(),
             last_name=payload["last_name"].strip(),
             email=payload["email"].strip(),
@@ -159,11 +263,7 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             preferred_language=payload["lang"].strip(),
             role=payload["mode"].strip(),
         )
-        try:
-            session = self.repository.create_user(payload=payload, profile=profile)
-        except ValueError as exc:
-            self._send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
-            return
+        session = self.repository.create_user(payload=payload, profile=profile)
         self._send_json({"session": session}, status=HTTPStatus.CREATED)
 
     def _handle_login(self) -> None:
@@ -173,44 +273,62 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         if not email or not password:
             self._send_json({"error": "Email and password are required."}, status=HTTPStatus.BAD_REQUEST)
             return
-        try:
-            session = self.repository.authenticate_user(
-                email=email,
-                password=password,
-                language=str(payload.get("lang", "")).strip() or None,
-            )
-        except ValueError as exc:
-            self._send_json({"error": str(exc)}, status=HTTPStatus.UNAUTHORIZED)
-            return
+        session = self.repository.authenticate_user(
+            email=email,
+            password=password,
+            language=str(payload.get("lang", "")).strip() or None,
+            remember_me=bool(payload.get("remember_me")),
+        )
         self._send_json({"session": session})
 
     def _handle_logout(self) -> None:
         token = self._bearer_token()
-        if not token:
-            self._send_json({"ok": True})
-            return
-        self.repository.delete_session(token)
+        if token:
+            self.repository.delete_session(token)
         self._send_json({"ok": True})
+
+    def _handle_logout_all_devices(self) -> None:
+        session = self._require_session()
+        self.repository.delete_all_sessions(session["user_id"], keep_token=session["token"])
+        self._send_json({"message": "Logged out from all other devices."})
+
+    def _handle_password_reset_request(self) -> None:
+        payload = self._read_json()
+        email = str(payload.get("email", "")).strip()
+        if not email:
+            raise ValueError("Email is required for password reset.")
+        self._send_json(self.repository.request_password_reset(email))
+
+    def _handle_password_reset_confirm(self) -> None:
+        payload = self._read_json()
+        email = str(payload.get("email", "")).strip()
+        reset_code = str(payload.get("reset_code", "")).strip()
+        new_password = str(payload.get("new_password", ""))
+        self._validate_password(new_password)
+        self.repository.reset_password(email=email, reset_code=reset_code, new_password=new_password)
+        self._send_json({"message": "Password updated. Please log in again."})
 
     def _handle_update_profile(self) -> None:
         session = self._require_session()
         payload = self._read_json()
-        required = ["first_name", "last_name", "country", "lang", "audience", "mode", "permissions"]
+        required = ["first_name", "last_name", "country", "lang", "audience", "mode", "schedule_type", "mood_baseline", "energy_baseline"]
         missing = [field for field in required if not str(payload.get(field, "")).strip()]
         if missing:
             self._send_json({"error": f"Missing required fields: {', '.join(missing)}"}, status=HTTPStatus.BAD_REQUEST)
             return
+        payload["permissions"] = str(payload.get("permissions", "true"))
+        payload["goals"] = self._split_lines(payload.get("goals", []))
+        payload["distraction_triggers"] = self._split_lines(payload.get("distraction_triggers", []))
+        payload["sleep_target_hours"] = float(payload.get("sleep_target_hours", 8.0))
+        payload["age"] = int(payload["age"]) if str(payload.get("age", "")).strip() else None
         payload["token"] = session["token"]
-        updated_session = self.repository.update_profile(user_id=session["user_id"], payload=payload)
-        self._send_json({"session": updated_session})
+        updated = self.repository.update_profile(session["user_id"], payload)
+        self._send_json({"session": updated})
 
     def _handle_save_plan(self) -> None:
         session = self._require_session()
         payload = self._read_json()
-        steps = payload.get("steps", [])
-        if not isinstance(steps, list):
-            raise ValueError("Plan steps must be a list of lines.")
-        clean_steps = [str(step).strip() for step in steps if str(step).strip()]
+        steps = self._split_lines(payload.get("steps", []))
         minutes = int(payload.get("recommended_session_minutes", 0))
         if minutes < 10 or minutes > 120:
             raise ValueError("Session minutes must be between 10 and 120.")
@@ -219,34 +337,68 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             title=str(payload.get("title", "")).strip() or "Bboo focus recovery plan",
             recommended_session_minutes=minutes,
             focus_theme=str(payload.get("focus_theme", "")).strip() or "Electric momentum",
-            steps=clean_steps or ["Start with one distraction-free session."],
+            steps=steps or ["Start with one distraction-free session."],
             attention_game=str(payload.get("attention_game", "")).strip() or "Pattern Pulse: memorize the glowing sequence before the timer ends.",
         )
-        saved = self.repository.save_focus_plan(user_id=session["user_id"], plan=plan)
+        saved = self.repository.save_focus_plan(session["user_id"], plan)
         self._send_json({"plan": saved.to_dict(), "message": "Your plan was saved to MySQL."})
+
+    def _handle_update_settings(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        required = ["app_name", "study_start_time", "study_end_time"]
+        missing = [field for field in required if not str(payload.get(field, "")).strip()]
+        if missing:
+            raise ValueError(f"Missing required settings: {', '.join(missing)}")
+        payload["sleep_target_hours"] = float(payload.get("sleep_target_hours", 8.0))
+        payload["focus_session_minutes"] = int(payload.get("focus_session_minutes", 30))
+        payload["short_break_minutes"] = int(payload.get("short_break_minutes", 5))
+        payload["long_break_minutes"] = int(payload.get("long_break_minutes", 15))
+        settings = self.repository.update_settings(session["user_id"], payload)
+        self._send_json({"settings": settings.to_dict()})
+
+    def _handle_create_checkin(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        payload["focus_feeling"] = int(payload.get("focus_feeling", 5))
+        self._send_json(self.repository.record_checkin(session["user_id"], payload))
+
+    def _handle_start_timer(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        payload["planned_minutes"] = int(payload.get("planned_minutes", 30))
+        payload["label"] = str(payload.get("label", "")).strip() or "Deep focus session"
+        self._send_json(self.repository.start_focus_timer(session["user_id"], payload), status=HTTPStatus.CREATED)
+
+    def _handle_complete_timer(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        payload["timer_id"] = int(payload.get("timer_id", 0))
+        payload["actual_minutes"] = int(payload.get("actual_minutes", 0))
+        payload["completed"] = bool(payload.get("completed"))
+        self._send_json(self.repository.complete_focus_timer(session["user_id"], payload))
+
+    def _handle_guardian_link(self) -> None:
+        session = self._require_session()
+        child_email = str(self._read_json().get("child_email", "")).strip()
+        if not child_email:
+            raise ValueError("Child email is required.")
+        self._send_json(self.repository.link_child_account(session["user_id"], child_email))
 
     def _build_profile(self, query: str, user_id: int | None = None):
         params = parse_qs(query)
-        lang = self._single(params, "lang", "en")
-        permissions = self._single(params, "permissions", "true").lower() == "true"
-        audience = self._single(params, "audience", "student")
         if user_id is not None:
-            stored_profile = self.repository.load_profile_by_user_id(user_id)
-            if stored_profile is not None:
-                return stored_profile
-        email = self._single(params, "email", "")
-        if email:
-            stored_profile = self.repository.load_profile(email=email)
-            if stored_profile is not None:
-                return stored_profile
+            stored = self.repository.load_profile_by_user_id(user_id)
+            if stored is not None:
+                return stored
         return self.simulator.build_profile(
-            audience=audience,
-            permissions_granted=permissions,
+            audience=self._single(params, "audience", "student"),
+            permissions_granted=self._single(params, "permissions", "true").lower() == "true",
             first_name=self._single(params, "first_name", ""),
             last_name=self._single(params, "last_name", ""),
-            email=email,
+            email=self._single(params, "email", ""),
             country=self._single(params, "country", "Egypt"),
-            preferred_language=lang,
+            preferred_language=self._single(params, "lang", "en"),
             role=self._single(params, "mode", "user"),
         )
 
@@ -280,12 +432,20 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         password = str(payload.get("password", ""))
         if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
             raise ValueError("Please enter a valid email address.")
+        self._validate_password(password)
+
+    def _validate_password(self, password: str) -> None:
         if len(password) < 8:
             raise ValueError("Password must be at least 8 characters long.")
         if not re.search(r"[A-Za-z]", password):
             raise ValueError("Password must include at least one letter.")
         if not re.search(r"\d", password):
             raise ValueError("Password must include at least one number.")
+
+    def _split_lines(self, value: list[str] | str) -> list[str]:
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+        return [item.strip() for item in str(value).splitlines() if item.strip()]
 
     def _send_json(self, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(payload).encode("utf-8")

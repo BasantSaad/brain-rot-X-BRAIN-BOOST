@@ -246,6 +246,10 @@ h1 {
   gap: 14px;
 }
 
+.full-span {
+  grid-column: 1 / -1;
+}
+
 .single-column {
   grid-template-columns: 1fr;
 }
@@ -266,6 +270,17 @@ select {
   background: var(--panel-strong);
   color: var(--ink);
   font: inherit;
+}
+
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: var(--panel-strong);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
 }
 
 .toggle {
@@ -326,6 +341,11 @@ select {
 .topbar-actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.muted-inline {
+  color: var(--muted);
 }
 
 .score-card {

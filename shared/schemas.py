@@ -38,6 +38,34 @@ class UserProfile:
 
 
 @dataclass(slots=True)
+class AppSettings:
+    app_name: str
+    study_start_time: str
+    study_end_time: str
+    sleep_target_hours: float
+    focus_session_minutes: int
+    short_break_minutes: int
+    long_break_minutes: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ExtendedProfile:
+    age: int | None
+    schedule_type: str
+    goals: list[str]
+    distraction_triggers: list[str]
+    sleep_target_hours: float
+    mood_baseline: str
+    energy_baseline: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
 class FocusMetric:
     label: str
     value: str
@@ -100,6 +128,30 @@ class ChartSeries:
     subtitle: str
     chart_type: str
     points: list[TrendPoint]
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class PlanHistoryItem:
+    saved_at: str
+    recommended_session_minutes: int
+    focus_theme: str
+    steps: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class WeeklySummary:
+    headline: str
+    improvement_percent: int
+    streak_days: int
+    completed_sessions: int
+    average_focus_minutes: int
+    recommendation: str
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -16,25 +16,27 @@
         <div class="brand-row compact-brand">
           <img src="/icon.svg" alt="Bboo icon" class="brand-icon small" />
           <div>
-            <p class="eyebrow" data-i18n="dashboardEyebrow">Bboo dashboard</p>
-            <h2 id="topbarName">Lina</h2>
+            <p class="eyebrow">Focus OS</p>
+            <h2 id="topbarName">Bboo</h2>
+            <small id="topbarSubtitle" class="muted-inline">Recovery dashboard</small>
           </div>
         </div>
         <div class="topbar-actions">
-          <button id="backToAuth" class="ghost-btn" type="button" data-i18n="switchAccount">Switch account</button>
+          <button id="logoutAllDevices" class="ghost-btn" type="button">Logout all devices</button>
+          <button id="backToAuth" class="ghost-btn" type="button">Switch account</button>
         </div>
       </header>
 
       <main class="dashboard">
         <section class="score-card glass">
           <div>
-            <p class="card-label" data-i18n="brainState">Brain state</p>
-            <h1 id="headline">Your brain is currently Boost.</h1>
+            <p class="card-label">Brain state</p>
+            <h1 id="headline">Your dashboard is loading.</h1>
           </div>
           <div class="score-ring">
             <div class="score-core">
               <span id="focusScore">--</span>
-              <small data-i18n="scoreLabel">Focus score</small>
+              <small>Focus score</small>
             </div>
           </div>
           <p id="stateBadge" class="state-badge">--</p>
@@ -46,103 +48,151 @@
         <section class="two-column">
           <article class="glass section-card">
             <div class="section-head">
-              <h3 data-i18n="profileTitle">Profile settings</h3>
-              <p data-i18n="profileSubtitle">Update the account details that shape your dashboard and saved plan.</p>
+              <h3>Application settings</h3>
+              <p>Edit the application name, study times, focus timer rhythm, and sleep target.</p>
             </div>
-            <p id="profileMessage" class="panel-message" aria-live="polite"></p>
-            <form id="profileForm" class="control-grid">
-              <label>
-                <span data-i18n="firstName">First name</span>
-                <input id="profileFirstName" required />
-              </label>
-              <label>
-                <span data-i18n="lastName">Last name</span>
-                <input id="profileLastName" required />
-              </label>
-              <label>
-                <span data-i18n="email">Email</span>
-                <input id="profileEmail" disabled />
-              </label>
-              <label>
-                <span data-i18n="country">Country</span>
-                <input id="profileCountry" required />
-              </label>
-              <label>
-                <span data-i18n="language">Language</span>
-                <select id="profileLanguage">
-                  <option value="en">English</option>
-                  <option value="ar">العربية</option>
-                </select>
-              </label>
-              <label>
-                <span data-i18n="audience">Audience</span>
-                <select id="profileAudience">
-                  <option value="student">Student</option>
-                  <option value="young-adult">Young Adult</option>
-                  <option value="child">Child</option>
-                </select>
-              </label>
-              <label>
-                <span data-i18n="view">Dashboard</span>
-                <select id="profileMode">
-                  <option value="user">User</option>
-                  <option value="parent">Parent</option>
-                </select>
-              </label>
-              <label class="toggle">
-                <span data-i18n="permissions">Device permission</span>
-                <input id="profilePermissions" type="checkbox" />
-              </label>
-            </form>
-            <button id="saveProfile" class="ghost-btn save-panel-btn" type="button" data-i18n="saveProfile">Save profile</button>
+            <p id="settingsMessage" class="panel-message"></p>
+            <div class="control-grid">
+              <label><span>Application name</span><input id="appNameInput" /></label>
+              <label><span>Study start</span><input id="studyStartInput" placeholder="16:00" /></label>
+              <label><span>Study end</span><input id="studyEndInput" placeholder="20:00" /></label>
+              <label><span>Sleep target (hours)</span><input id="sleepTargetInput" type="number" min="5" max="12" step="0.5" /></label>
+              <label><span>Focus minutes</span><input id="focusMinutesInput" type="number" min="10" max="120" /></label>
+              <label><span>Short break</span><input id="shortBreakInput" type="number" min="3" max="30" /></label>
+              <label><span>Long break</span><input id="longBreakInput" type="number" min="5" max="45" /></label>
+            </div>
+            <button id="saveSettings" class="ghost-btn save-panel-btn" type="button">Save settings</button>
           </article>
 
           <article class="glass section-card">
             <div class="section-head">
-              <h3 data-i18n="sessionTitle">Session status</h3>
-              <p data-i18n="sessionSubtitle">This dashboard now uses a basic MySQL-backed session token.</p>
+              <h3>Weekly summary</h3>
+              <p>See whether your recovery is improving, how long your streak is, and what to protect next.</p>
             </div>
-            <div class="stack">
-              <div class="insight-card">
-                <strong data-i18n="sessionHintTitle">How it works</strong>
-                <p data-i18n="sessionHintBody">When you log in, the backend creates a token, stores it in MySQL, and the browser sends it with each request.</p>
-              </div>
-              <div id="sessionMessage" class="panel-message"></div>
-            </div>
+            <div id="weeklySummary" class="stack"></div>
           </article>
         </section>
 
         <section class="two-column">
           <article class="glass section-card">
             <div class="section-head">
-              <h3 data-i18n="habitsTitle">Habit booster</h3>
-              <p data-i18n="habitsSubtitle">Small actions that train attention every day.</p>
+              <h3>Profile completion</h3>
+              <p>Complete your schedule, goals, triggers, and baselines so Bboo can guide you better.</p>
+            </div>
+            <p id="profileMessage" class="panel-message"></p>
+            <div class="control-grid">
+              <label><span>First name</span><input id="profileFirstName" /></label>
+              <label><span>Last name</span><input id="profileLastName" /></label>
+              <label><span>Email</span><input id="profileEmail" disabled /></label>
+              <label><span>Country</span><input id="profileCountry" /></label>
+              <label><span>Language</span><select id="profileLanguage"><option value="en">English</option><option value="ar">العربية</option></select></label>
+              <label><span>Audience</span><select id="profileAudience"><option value="student">Student</option><option value="young-adult">Young Adult</option><option value="child">Child</option></select></label>
+              <label><span>Dashboard mode</span><select id="profileMode"><option value="user">User</option><option value="parent">Parent</option></select></label>
+              <label><span>Age</span><input id="profileAge" type="number" min="5" max="80" /></label>
+              <label><span>Schedule type</span><input id="profileScheduleType" placeholder="student afternoons" /></label>
+              <label><span>Sleep target</span><input id="profileSleepTarget" type="number" min="5" max="12" step="0.5" /></label>
+              <label><span>Mood baseline</span><input id="profileMoodBaseline" placeholder="steady" /></label>
+              <label><span>Energy baseline</span><input id="profileEnergyBaseline" placeholder="medium" /></label>
+              <label class="full-span"><span>Goals (one per line)</span><textarea id="profileGoals" rows="4"></textarea></label>
+              <label class="full-span"><span>Distraction triggers (one per line)</span><textarea id="profileTriggers" rows="4"></textarea></label>
+              <label class="toggle"><span>Device permission</span><input id="profilePermissions" type="checkbox" /></label>
+            </div>
+            <button id="saveProfile" class="ghost-btn save-panel-btn" type="button">Save profile</button>
+          </article>
+
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3>Suggestion engine</h3>
+              <p>Best study time, sleep protection time, and risk-window guidance based on your stored activity.</p>
+            </div>
+            <div id="suggestions" class="stack"></div>
+          </article>
+        </section>
+
+        <section class="two-column">
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3>Focus timer</h3>
+              <p>Start a Pomodoro or deep-work session, then mark it complete to feed your progress tracking.</p>
+            </div>
+            <p id="timerMessage" class="panel-message"></p>
+            <div class="control-grid">
+              <label><span>Session label</span><input id="timerLabel" value="Deep focus session" /></label>
+              <label><span>Planned minutes</span><input id="timerPlannedMinutes" type="number" min="10" max="120" value="30" /></label>
+              <label><span>Timer ID</span><input id="timerId" disabled /></label>
+              <label><span>Actual minutes</span><input id="timerActualMinutes" type="number" min="0" max="180" value="30" /></label>
+            </div>
+            <div class="topbar-actions">
+              <button id="startTimer" class="ghost-btn" type="button">Start timer</button>
+              <button id="completeTimer" class="ghost-btn" type="button">Complete timer</button>
+            </div>
+            <div id="timers" class="stack" style="margin-top:16px"></div>
+          </article>
+
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3>Daily check-in</h3>
+              <p>Track how focused, energized, and emotionally steady you felt today.</p>
+            </div>
+            <p id="checkinMessage" class="panel-message"></p>
+            <div class="control-grid">
+              <label><span>Mood</span><input id="checkinMood" value="steady" /></label>
+              <label><span>Energy</span><input id="checkinEnergy" value="medium" /></label>
+              <label><span>Focus feeling (1-10)</span><input id="checkinFocusFeeling" type="number" min="1" max="10" value="6" /></label>
+              <label class="full-span"><span>Notes</span><textarea id="checkinNotes" rows="4" placeholder="What helped or distracted you today?"></textarea></label>
+            </div>
+            <button id="saveCheckin" class="ghost-btn save-panel-btn" type="button">Save daily check-in</button>
+            <div id="checkins" class="stack" style="margin-top:16px"></div>
+          </article>
+        </section>
+
+        <section class="two-column">
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3>Plan history</h3>
+              <p>Save your edited plan and compare this week’s plan rhythm with older versions.</p>
+            </div>
+            <div id="plan"></div>
+            <div id="planHistory" class="stack" style="margin-top:16px"></div>
+          </article>
+
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3>Guardian linking</h3>
+              <p>Connect parent accounts to child accounts and surface supportive summaries.</p>
+            </div>
+            <p id="childrenMessage" class="panel-message"></p>
+            <div class="control-grid">
+              <label class="full-span"><span>Child email</span><input id="childEmail" placeholder="child@bboo.app" /></label>
+            </div>
+            <button id="linkChild" class="ghost-btn save-panel-btn" type="button">Link child account</button>
+            <div id="children" class="stack" style="margin-top:16px"></div>
+          </article>
+        </section>
+
+        <section class="two-column">
+          <article class="glass section-card">
+            <div class="section-head">
+              <h3>Habit booster</h3>
+              <p>Small actions that train attention every day.</p>
             </div>
             <div id="habits" class="stack"></div>
           </article>
 
           <article class="glass section-card">
             <div class="section-head">
-              <h3 data-i18n="planTitle">Personalized plan</h3>
-              <p data-i18n="planSubtitle">Adaptive focus sessions, friction, and recovery rituals.</p>
+              <h3>Actionable insights</h3>
+              <p>Recommendations backed by behavioral signals and your stored history.</p>
             </div>
-            <div id="plan"></div>
+            <div id="insights" class="stack"></div>
           </article>
         </section>
 
         <section class="two-column">
-          <article class="glass section-card">
-            <div class="section-head">
-              <h3 data-i18n="insightsTitle">Actionable insights</h3>
-              <p data-i18n="insightsSubtitle">Recommendations backed by behavioral signals.</p>
-            </div>
-            <div id="insights" class="stack"></div>
-          </article>
-
           <article id="guardianSection" class="glass section-card">
             <div class="section-head">
-              <h3 data-i18n="parentTitle">Guardian guidance</h3>
-              <p data-i18n="parentSubtitle">Healthy monitoring for younger users.</p>
+              <h3>Parent summary cards</h3>
+              <p>Supportive guidance and summaries for linked children without raw surveillance.</p>
             </div>
             <div id="parentGuidance" class="stack empty-state">Parent mode content appears here.</div>
           </article>
@@ -150,6 +200,6 @@
       </main>
     </div>
 
-    <script src="/dashboard.js?v=2"></script>
+    <script src="/dashboard.js?v=3"></script>
   </body>
 </html>
