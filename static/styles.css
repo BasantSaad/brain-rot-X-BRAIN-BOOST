@@ -246,10 +246,6 @@ h1 {
   gap: 14px;
 }
 
-.full-span {
-  grid-column: 1 / -1;
-}
-
 .single-column {
   grid-template-columns: 1fr;
 }
@@ -270,17 +266,6 @@ select {
   background: var(--panel-strong);
   color: var(--ink);
   font: inherit;
-}
-
-textarea {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 12px 14px;
-  background: var(--panel-strong);
-  color: var(--ink);
-  font: inherit;
-  resize: vertical;
 }
 
 .toggle {
@@ -341,11 +326,6 @@ textarea {
 .topbar-actions {
   display: flex;
   gap: 12px;
-  flex-wrap: wrap;
-}
-
-.muted-inline {
-  color: var(--muted);
 }
 
 .score-card {
@@ -610,6 +590,76 @@ ul {
   }
 
   .donut-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.summary-card,
+.history-card {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 16px;
+}
+
+.summary-card small,
+.tiny-id {
+  color: var(--muted);
+}
+
+.summary-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.05rem;
+}
+
+.history-card p {
+  margin-bottom: 0;
+}
+
+.mini-empty {
+  min-height: 110px;
+}
+
+.compact-stack {
+  margin-top: 16px;
+}
+
+.wide-field {
+  grid-column: 1 / -1;
+}
+
+.wide-field textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: var(--panel-strong);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.active-history {
+  border-color: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+@media (max-width: 720px) {
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 }
