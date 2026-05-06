@@ -3,70 +3,51 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bboo | Dashboard</title>
+    <title>Bboo | Weekly Summary</title>
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body data-mode="user" data-page="dashboard">
+  <body data-mode="user" data-page="summary">
     <div class="page-shell">
       <header class="dashboard-topbar glass">
         <div class="brand-row compact-brand">
           <img src="/icon.svg" alt="Bboo icon" class="brand-icon small" />
-          <div>
-            <p class="eyebrow">Bboo dashboard</p>
-            <h2 id="topbarName">Bboo</h2>
-          </div>
+          <div><p class="eyebrow">Bboo weekly summary</p><h2 id="topbarName">Bboo</h2></div>
         </div>
         <div class="topbar-actions">
           <button id="logoutAllDevices" class="ghost-btn" type="button">Log out other devices</button>
           <button id="backToAuth" class="ghost-btn" type="button">Switch account</button>
         </div>
       </header>
-
       <div class="dashboard-layout">
         <aside class="glass sidebar-nav">
           <p class="sidebar-title">Pages</p>
-          <a href="/dashboard.html" class="sidebar-link is-current">Dashboard</a>
+          <a href="/dashboard.html" class="sidebar-link">Dashboard</a>
           <a href="/usage.html" class="sidebar-link">App usage</a>
           <a href="/profile.html" class="sidebar-link">Profile</a>
-          <a href="/summary.html" class="sidebar-link">Weekly summary</a>
+          <a href="/summary.html" class="sidebar-link is-current">Weekly summary</a>
           <a href="/checkins.html" class="sidebar-link">Check-ins</a>
           <a href="/plan.html" class="sidebar-link">Plan</a>
           <a href="/insights.html" class="sidebar-link">Insights</a>
         </aside>
-
         <main class="dashboard">
-          <section class="score-card glass">
-            <div>
-              <p class="card-label">Brain state</p>
-              <h1 id="headline">Your brain is currently Boost.</h1>
-            </div>
-            <div class="score-ring">
-              <div class="score-core">
-                <span id="focusScore">--</span>
-                <small>Focus score</small>
-              </div>
-            </div>
-            <p id="stateBadge" class="state-badge">--</p>
+          <section class="two-column">
+            <article class="glass section-card">
+              <div class="section-head"><h3>Weekly summary</h3><p>Week-over-week comparison, streaks, milestones, and recovery trend.</p></div>
+              <div id="weeklySummary" class="summary-grid"></div>
+            </article>
+            <article class="glass section-card">
+              <div class="section-head"><h3>Suggestion engine</h3><p>Best study time, sleep protection time, and distraction risk window.</p></div>
+              <div id="suggestions" class="stack"></div>
+            </article>
           </section>
-
-          <section class="metrics-grid" id="metrics"></section>
-          <section class="charts-grid" id="charts"></section>
-
-          <article class="glass section-card">
-            <div class="section-head">
-              <h3>Session status</h3>
-              <p>This is the default overview page. Use the sidebar to move to the other pages.</p>
-            </div>
-            <div id="sessionMessage" class="panel-message"></div>
-          </article>
+          <article class="glass section-card"><div id="sessionMessage" class="panel-message"></div></article>
         </main>
       </div>
     </div>
-
     <script src="/dashboard.js?v=4"></script>
   </body>
 </html>

@@ -1,5 +1,6 @@
 const sessionKey = "bboo-session";
 const session = JSON.parse(localStorage.getItem(sessionKey) || "null");
+let latestDashboardPayload = null;
 
 if (!session?.token) {
   window.location.href = "/";
@@ -25,11 +26,15 @@ const dashEls = {
   checkinMessage: document.getElementById("checkinMessage"),
   timerMessage: document.getElementById("timerMessage"),
   guardianMessage: document.getElementById("guardianMessage"),
+  appUsageMessage: document.getElementById("appUsageMessage"),
   weeklySummary: document.getElementById("weeklySummary"),
   suggestions: document.getElementById("suggestions"),
   checkinHistory: document.getElementById("checkinHistory"),
   timerHistory: document.getElementById("timerHistory"),
   planHistory: document.getElementById("planHistory"),
+  appUsageEntries: document.getElementById("appUsageEntries"),
+  appUsageApps: document.getElementById("appUsageApps"),
+  appUsageDetail: document.getElementById("appUsageDetail"),
   profileFirstName: document.getElementById("profileFirstName"),
   profileLastName: document.getElementById("profileLastName"),
   profileEmail: document.getElementById("profileEmail"),
@@ -55,6 +60,10 @@ const dashEls = {
   completeTimer: document.getElementById("completeTimer"),
   childEmail: document.getElementById("childEmail"),
   linkChild: document.getElementById("linkChild"),
+  usageAppName: document.getElementById("usageAppName"),
+  usageDate: document.getElementById("usageDate"),
+  usageHours: document.getElementById("usageHours"),
+  saveAppUsage: document.getElementById("saveAppUsage"),
 };
 
 function authHeaders() {
@@ -97,6 +106,9 @@ async function apiRequest(url, options = {}) {
 }
 
 function setPanelMessage(element, message, isError = false) {
+  if (!element) {
+    return;
+  }
   element.textContent = message || "";
   element.classList.toggle("is-error", isError);
 }
@@ -176,6 +188,47 @@ function renderDonut(points) {
 function chartCard(chart) {
   const visual = chart.chart_type === "bar" ? renderBars(chart.points) : renderDonut(chart.points);
   return `<article class="glass chart-card"><h3>${chart.title}</h3><p>${chart.subtitle}</p>${visual}</article>`;
+}
+
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function buildReactiveUsageChart(usage) {
+  const todaysEntries = (usage.recent_entries || []).filter((item) => item.usage_date === todayIsoDate());
+  if (!todaysEntries.length) {
+    return null;
+  }
+  const totals = new Map();
+  todaysEntries.forEach((item) => {
+    totals.set(item.app_name, (totals.get(item.app_name) || 0) + Number(item.usage_hours || 0));
+  });
+  const points = [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, value]) => ({ label, value: Number(value.toFixed(1)) }));
+  if (!points.length) {
+    return null;
+  }
+  return {
+    title: "Today's app usage",
+    subtitle: "A reactive donut view built from your saved app usage entries for today.",
+    chart_type: "donut",
+    points,
+  };
+}
+
+function renderDashboardCharts(dashboard, usage = null) {
+  const charts = [...(dashboard?.charts || [])];
+  const reactiveUsageChart = usage ? buildReactiveUsageChart(usage) : null;
+  if (reactiveUsageChart) {
+    const donutIndex = charts.findIndex((chart) => chart.chart_type === "donut");
+    if (donutIndex >= 0) {
+      charts[donutIndex] = reactiveUsageChart;
+    } else {
+      charts.push(reactiveUsageChart);
+    }
+  }
+  dashEls.charts.innerHTML = charts.map(chartCard).join("");
 }
 
 function planCard(plan) {
@@ -279,7 +332,61 @@ function childCards(items) {
   `).join("");
 }
 
+function appUsageEntryCards(items) {
+  if (!items.length) {
+    return `<div class="empty-state mini-empty">No app usage added yet. Save an app and a day to begin your 7-day view.</div>`;
+  }
+  return items.map((item) => `
+    <div class="history-card">
+      <strong>${item.app_name}</strong>
+      <p>${item.usage_hours} hour(s)</p>
+      <p>${item.usage_date}</p>
+    </div>
+  `).join("");
+}
+
+function appUsageChips(apps, selectedApp) {
+  if (!apps.length) {
+    return `<div class="empty-state mini-empty">No app summaries yet.</div>`;
+  }
+  return apps.map((app) => `
+    <button class="app-chip ${app.app_name === selectedApp ? "is-selected" : ""}" data-app-name="${app.app_name}" type="button">
+      <strong>${app.app_name}</strong>
+      <span>${app.total_hours}h / 7 days</span>
+    </button>
+  `).join("");
+}
+
+function appUsageDetailCard(detail) {
+  if (!detail?.app_name) {
+    return `Add or select an app to view its 7-day history.`;
+  }
+  const max = Math.max(...detail.days.map((day) => day.hours), 1);
+  return `
+    <div class="usage-detail-card">
+      <div class="usage-detail-head">
+        <strong>${detail.app_name}</strong>
+        <span>${detail.total_hours}h in the last 7 days</span>
+      </div>
+      <div class="usage-bars">
+        ${detail.days.map((day) => `
+          <div class="usage-bar-col">
+            <span class="usage-bar-value">${day.hours}h</span>
+            <div class="usage-bar-track">
+              <div class="usage-bar-fill" style="height:${(day.hours / max) * 100}%"></div>
+            </div>
+            <small>${day.label}</small>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function applyProfileForm(profile) {
+  if (!dashEls.profileFirstName) {
+    return;
+  }
   dashEls.profileFirstName.value = profile.first_name || "";
   dashEls.profileLastName.value = profile.last_name || "";
   dashEls.profileEmail.value = profile.email || "";
@@ -291,6 +398,9 @@ function applyProfileForm(profile) {
 }
 
 function applySettingsForm(settings) {
+  if (!dashEls.appName) {
+    return;
+  }
   dashEls.appName.value = settings.app_name || "Bboo";
   dashEls.studyStart.value = settings.study_start || "16:00";
   dashEls.bedtimeTarget.value = settings.bedtime_target || "22:30";
@@ -300,6 +410,9 @@ function applySettingsForm(settings) {
 }
 
 function attachPlanEditor(plan) {
+  if (!dashEls.plan) {
+    return;
+  }
   const saveButton = document.getElementById("savePlanEdits");
   if (!saveButton) {
     return;
@@ -334,31 +447,49 @@ function attachPlanEditor(plan) {
 }
 
 async function loadPlanHistory() {
+  if (!dashEls.planHistory) {
+    return;
+  }
   const body = await apiRequest("/api/plan-history");
   dashEls.planHistory.innerHTML = planHistoryCards(body.items || []);
 }
 
 async function loadWeeklySummary() {
+  if (!dashEls.weeklySummary) {
+    return;
+  }
   const body = await apiRequest("/api/weekly-summary");
   dashEls.weeklySummary.innerHTML = weeklySummaryCards(body.summary || {});
 }
 
 async function loadSuggestions() {
+  if (!dashEls.suggestions) {
+    return;
+  }
   const body = await apiRequest("/api/suggestions");
   dashEls.suggestions.innerHTML = suggestionCards(body.suggestions || {});
 }
 
 async function loadCheckins() {
+  if (!dashEls.checkinHistory) {
+    return;
+  }
   const body = await apiRequest("/api/checkins");
   dashEls.checkinHistory.innerHTML = checkinCards(body.items || []);
 }
 
 async function loadTimers() {
+  if (!dashEls.timerHistory) {
+    return;
+  }
   const body = await apiRequest("/api/timers");
   dashEls.timerHistory.innerHTML = timerCards(body.items || []);
 }
 
 async function loadChildren() {
+  if (!dashEls.guardianSection || !dashEls.parentGuidance) {
+    return;
+  }
   if ((session.mode || "user") !== "parent") {
     dashEls.guardianSection.classList.add("hidden");
     return;
@@ -369,7 +500,44 @@ async function loadChildren() {
   dashEls.parentGuidance.innerHTML = childCards(body.items || []);
 }
 
+async function loadAppUsageDetail(appName) {
+  if (!dashEls.appUsageDetail) {
+    return;
+  }
+  if (!appName) {
+    dashEls.appUsageDetail.className = "usage-detail-shell empty-state";
+    dashEls.appUsageDetail.innerHTML = "Add or select an app to view its 7-day history.";
+    return;
+  }
+  const body = await apiRequest(`/api/app-usage-detail?app=${encodeURIComponent(appName)}`);
+  dashEls.appUsageDetail.className = "usage-detail-shell";
+  dashEls.appUsageDetail.innerHTML = appUsageDetailCard(body.detail);
+}
+
+async function loadAppUsage(preferredAppName = null) {
+  if (!dashEls.appUsageEntries || !dashEls.appUsageApps) {
+    return;
+  }
+  const body = await apiRequest("/api/app-usage");
+  const usage = body.usage || { apps: [], recent_entries: [], selected_app: null };
+  dashEls.appUsageEntries.innerHTML = appUsageEntryCards(usage.recent_entries || []);
+  if (latestDashboardPayload) {
+    renderDashboardCharts(latestDashboardPayload, usage);
+  }
+  const selectedApp = preferredAppName || usage.selected_app;
+  dashEls.appUsageApps.innerHTML = appUsageChips(usage.apps || [], selectedApp);
+  dashEls.appUsageApps.querySelectorAll("[data-app-name]").forEach((button) => {
+    button.addEventListener("click", () => {
+      loadAppUsage(button.dataset.appName);
+    });
+  });
+  await loadAppUsageDetail(selectedApp);
+}
+
 async function loadSettings() {
+  if (!dashEls.appName) {
+    return;
+  }
   const body = await apiRequest("/api/settings");
   applySettingsForm(body.settings || {});
 }
@@ -390,19 +558,20 @@ async function loadDashboard() {
     ]);
 
     const profile = profileBody.profile;
+    latestDashboardPayload = dashboard;
     applyProfileForm(profile);
-    dashEls.topbarName.textContent = dashboard.app_name || session.first_name || profile.first_name || "Bboo";
-    dashEls.headline.textContent = dashboard.headline;
-    dashEls.focusScore.textContent = dashboard.focus_score;
-    dashEls.stateBadge.textContent = dashboard.current_state;
-    dashEls.metrics.innerHTML = dashboard.metrics.map(metricCard).join("");
-    dashEls.charts.innerHTML = dashboard.charts.map(chartCard).join("");
-    dashEls.habits.innerHTML = dashboard.habits.map(habitCard).join("");
-    dashEls.insights.innerHTML = dashboard.insights.map(insightCard).join("");
-    dashEls.plan.innerHTML = planCard(planBody);
+    if (dashEls.topbarName) dashEls.topbarName.textContent = dashboard.app_name || session.first_name || profile.first_name || "Bboo";
+    if (dashEls.headline) dashEls.headline.textContent = dashboard.headline;
+    if (dashEls.focusScore) dashEls.focusScore.textContent = dashboard.focus_score;
+    if (dashEls.stateBadge) dashEls.stateBadge.textContent = dashboard.current_state;
+    if (dashEls.metrics) dashEls.metrics.innerHTML = dashboard.metrics.map(metricCard).join("");
+    if (dashEls.charts) renderDashboardCharts(dashboard);
+    if (dashEls.habits) dashEls.habits.innerHTML = dashboard.habits.map(habitCard).join("");
+    if (dashEls.insights) dashEls.insights.innerHTML = dashboard.insights.map(insightCard).join("");
+    if (dashEls.plan) dashEls.plan.innerHTML = planCard(planBody);
     attachPlanEditor(planBody);
 
-    if (dashboard.parent_guidance) {
+    if (dashboard.parent_guidance && dashEls.parentGuidance) {
       dashEls.parentGuidance.className = "stack";
       dashEls.parentGuidance.innerHTML = guidanceCard(dashboard.parent_guidance);
     }
@@ -412,7 +581,7 @@ async function loadDashboard() {
   }
 }
 
-dashEls.saveProfile.addEventListener("click", async () => {
+if (dashEls.saveProfile) dashEls.saveProfile.addEventListener("click", async () => {
   try {
     setPanelMessage(dashEls.profileMessage, "Saving profile...");
     const body = await apiRequest("/api/profile", {
@@ -437,7 +606,7 @@ dashEls.saveProfile.addEventListener("click", async () => {
   }
 });
 
-dashEls.saveSettings.addEventListener("click", async () => {
+if (dashEls.saveSettings) dashEls.saveSettings.addEventListener("click", async () => {
   try {
     setPanelMessage(dashEls.settingsMessage, "Saving settings...");
     const body = await apiRequest("/api/settings", {
@@ -459,7 +628,7 @@ dashEls.saveSettings.addEventListener("click", async () => {
   }
 });
 
-dashEls.saveCheckin.addEventListener("click", async () => {
+if (dashEls.saveCheckin) dashEls.saveCheckin.addEventListener("click", async () => {
   try {
     setPanelMessage(dashEls.checkinMessage, "Saving check-in...");
     const body = await apiRequest("/api/checkins", {
@@ -481,7 +650,7 @@ dashEls.saveCheckin.addEventListener("click", async () => {
   }
 });
 
-dashEls.startTimer.addEventListener("click", async () => {
+if (dashEls.startTimer) dashEls.startTimer.addEventListener("click", async () => {
   try {
     setPanelMessage(dashEls.timerMessage, "Starting timer...");
     const body = await apiRequest("/api/focus-timer/start", {
@@ -499,7 +668,7 @@ dashEls.startTimer.addEventListener("click", async () => {
   }
 });
 
-dashEls.completeTimer.addEventListener("click", async () => {
+if (dashEls.completeTimer) dashEls.completeTimer.addEventListener("click", async () => {
   const timerNode = dashEls.timerHistory.querySelector(".active-history [data-timer-id]") || dashEls.timerHistory.querySelector("[data-timer-id]");
   if (!timerNode) {
     setPanelMessage(dashEls.timerMessage, "Start a timer first so there is one to complete.", true);
@@ -524,7 +693,7 @@ dashEls.completeTimer.addEventListener("click", async () => {
   }
 });
 
-dashEls.linkChild.addEventListener("click", async () => {
+if (dashEls.linkChild) dashEls.linkChild.addEventListener("click", async () => {
   try {
     setPanelMessage(dashEls.guardianMessage, "Linking child account...");
     const body = await apiRequest("/api/guardian-link", {
@@ -543,7 +712,29 @@ dashEls.linkChild.addEventListener("click", async () => {
   }
 });
 
-dashEls.logoutAllDevices.addEventListener("click", async () => {
+if (dashEls.saveAppUsage) dashEls.saveAppUsage.addEventListener("click", async () => {
+  try {
+    setPanelMessage(dashEls.appUsageMessage, "Saving app usage...");
+    const body = await apiRequest("/api/app-usage", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        app_name: dashEls.usageAppName.value.trim(),
+        usage_date: dashEls.usageDate.value,
+        usage_hours: Number(dashEls.usageHours.value),
+      }),
+    });
+    setPanelMessage(dashEls.appUsageMessage, body.message || "App usage was saved.");
+    await loadDashboard();
+    await loadAppUsage(dashEls.usageAppName.value.trim());
+    await loadWeeklySummary();
+    await loadSuggestions();
+  } catch (error) {
+    setPanelMessage(dashEls.appUsageMessage, error.message, true);
+  }
+});
+
+if (dashEls.logoutAllDevices) dashEls.logoutAllDevices.addEventListener("click", async () => {
   try {
     const body = await apiRequest("/api/logout-all-devices", {
       method: "POST",
@@ -555,7 +746,7 @@ dashEls.logoutAllDevices.addEventListener("click", async () => {
   }
 });
 
-dashEls.backToAuth.addEventListener("click", async () => {
+if (dashEls.backToAuth) dashEls.backToAuth.addEventListener("click", async () => {
   try {
     await apiRequest("/api/logout", { method: "POST" });
   } catch {
@@ -566,6 +757,9 @@ dashEls.backToAuth.addEventListener("click", async () => {
 });
 
 async function bootstrap() {
+  if (dashEls.usageDate) {
+    dashEls.usageDate.value = new Date().toISOString().slice(0, 10);
+  }
   await loadDashboard();
   await Promise.all([
     loadSettings(),
@@ -574,6 +768,7 @@ async function bootstrap() {
     loadSuggestions(),
     loadCheckins(),
     loadTimers(),
+    loadAppUsage(),
     loadChildren(),
   ]);
 }

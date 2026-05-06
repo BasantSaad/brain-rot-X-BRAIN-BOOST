@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bboo | Profile</title>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body data-mode="user" data-page="profile">
+    <div class="page-shell">
+      <header class="dashboard-topbar glass">
+        <div class="brand-row compact-brand">
+          <img src="/icon.svg" alt="Bboo icon" class="brand-icon small" />
+          <div><p class="eyebrow">Bboo profile</p><h2 id="topbarName">Bboo</h2></div>
+        </div>
+        <div class="topbar-actions">
+          <button id="logoutAllDevices" class="ghost-btn" type="button">Log out other devices</button>
+          <button id="backToAuth" class="ghost-btn" type="button">Switch account</button>
+        </div>
+      </header>
+      <div class="dashboard-layout">
+        <aside class="glass sidebar-nav">
+          <p class="sidebar-title">Pages</p>
+          <a href="/dashboard.html" class="sidebar-link">Dashboard</a>
+          <a href="/usage.html" class="sidebar-link">App usage</a>
+          <a href="/profile.html" class="sidebar-link is-current">Profile</a>
+          <a href="/summary.html" class="sidebar-link">Weekly summary</a>
+          <a href="/checkins.html" class="sidebar-link">Check-ins</a>
+          <a href="/plan.html" class="sidebar-link">Plan</a>
+          <a href="/insights.html" class="sidebar-link">Insights</a>
+        </aside>
+        <main class="dashboard">
+          <section class="two-column">
+            <article class="glass section-card">
+              <div class="section-head"><h3>Profile settings</h3><p>Update the account details that shape your dashboard and plan.</p></div>
+              <p id="profileMessage" class="panel-message" aria-live="polite"></p>
+              <form id="profileForm" class="control-grid">
+                <label><span>First name</span><input id="profileFirstName" required /></label>
+                <label><span>Last name</span><input id="profileLastName" required /></label>
+                <label><span>Email</span><input id="profileEmail" disabled /></label>
+                <label><span>Country</span><input id="profileCountry" required /></label>
+                <label><span>Language</span><select id="profileLanguage"><option value="en">English</option><option value="ar">Arabic</option></select></label>
+                <label><span>Audience</span><select id="profileAudience"><option value="student">Student</option><option value="young-adult">Young Adult</option><option value="child">Child</option></select></label>
+                <label><span>Dashboard</span><select id="profileMode"><option value="user">User</option><option value="parent">Parent</option></select></label>
+                <label class="toggle"><span>Device permission</span><input id="profilePermissions" type="checkbox" /></label>
+              </form>
+              <button id="saveProfile" class="ghost-btn save-panel-btn" type="button">Save profile</button>
+            </article>
+            <article class="glass section-card">
+              <div class="section-head"><h3>Application settings</h3><p>Rename the app and tune the times that drive your routine.</p></div>
+              <p id="settingsMessage" class="panel-message" aria-live="polite"></p>
+              <form id="settingsForm" class="control-grid">
+                <label><span>Application name</span><input id="appName" required /></label>
+                <label><span>Best study start</span><input id="studyStart" type="time" required /></label>
+                <label><span>Sleep protection time</span><input id="bedtimeTarget" type="time" required /></label>
+                <label><span>Sleep target hours</span><input id="sleepTargetHours" type="number" min="5" max="12" required /></label>
+                <label><span>Default focus session minutes</span><input id="defaultSessionMinutes" type="number" min="10" max="120" required /></label>
+              </form>
+              <button id="saveSettings" class="ghost-btn save-panel-btn" type="button">Save settings</button>
+            </article>
+          </section>
+          <article class="glass section-card"><div id="sessionMessage" class="panel-message"></div></article>
+        </main>
+      </div>
+    </div>
+    <script src="/dashboard.js?v=4"></script>
+  </body>
+</html>

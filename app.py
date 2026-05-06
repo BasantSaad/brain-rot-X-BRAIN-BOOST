@@ -1,8 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import json
 import re
+from dataclasses import replace
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -51,6 +52,33 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             if parsed.path == "/api/profile":
                 self._handle_profile()
                 return
+            if parsed.path == "/api/settings":
+                self._handle_settings()
+                return
+            if parsed.path == "/api/plan-history":
+                self._handle_plan_history()
+                return
+            if parsed.path == "/api/weekly-summary":
+                self._handle_weekly_summary()
+                return
+            if parsed.path == "/api/checkins":
+                self._handle_checkins()
+                return
+            if parsed.path == "/api/timers":
+                self._handle_timers()
+                return
+            if parsed.path == "/api/app-usage":
+                self._handle_app_usage()
+                return
+            if parsed.path == "/api/app-usage-detail":
+                self._handle_app_usage_detail(parsed.query)
+                return
+            if parsed.path == "/api/children":
+                self._handle_children()
+                return
+            if parsed.path == "/api/suggestions":
+                self._handle_suggestions()
+                return
             if parsed.path == "/api/health":
                 self._send_json({"status": "ok", "service": "bboo-demo"})
                 return
@@ -80,6 +108,24 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             if parsed.path == "/api/logout":
                 self._handle_logout()
                 return
+            if parsed.path == "/api/logout-all-devices":
+                self._handle_logout_all_devices()
+                return
+            if parsed.path == "/api/checkins":
+                self._handle_record_checkin()
+                return
+            if parsed.path == "/api/app-usage":
+                self._handle_save_app_usage()
+                return
+            if parsed.path == "/api/focus-timer/start":
+                self._handle_timer_start()
+                return
+            if parsed.path == "/api/focus-timer/complete":
+                self._handle_timer_complete()
+                return
+            if parsed.path == "/api/guardian-link":
+                self._handle_guardian_link()
+                return
             self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
         except ValueError as exc:
             self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
@@ -95,6 +141,9 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             if parsed.path == "/api/plan":
                 self._handle_save_plan()
                 return
+            if parsed.path == "/api/settings":
+                self._handle_update_settings()
+                return
             self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
         except ValueError as exc:
             self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
@@ -105,21 +154,30 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         params = parse_qs(query)
         session = self._require_session()
         profile = self._build_profile(query, session["user_id"])
+        settings = self.repository.load_settings(session["user_id"])
         dashboard = self.engine.build_dashboard(
             profile=profile,
             language=self._single(params, "lang", session["lang"]),
             mode=self._single(params, "mode", session["mode"]),
         )
+        dashboard.app_name = settings["app_name"]
+        self.repository.record_dashboard_snapshot(session["user_id"], dashboard)
         self._send_json(dashboard.to_dict())
 
     def _handle_plan(self, query: str) -> None:
         params = parse_qs(query)
         session = self._require_session()
         profile = self._build_profile(query, session["user_id"])
-        plan = self.repository.load_focus_plan(session["user_id"]) or self.engine.build_personalized_plan(
-            profile=profile,
-            language=self._single(params, "lang", session["lang"]),
-        )
+        settings = self.repository.load_settings(session["user_id"])
+        plan = self.repository.load_focus_plan(session["user_id"])
+        if plan is None:
+            plan = self.engine.build_personalized_plan(
+                profile=profile,
+                language=self._single(params, "lang", session["lang"]),
+            )
+            plan.title = f"{settings['app_name']} focus recovery plan"
+            plan.recommended_session_minutes = int(settings["default_session_minutes"])
+            plan = self.repository.save_focus_plan(session["user_id"], plan)
         self._send_json(plan.to_dict())
 
     def _handle_profile(self) -> None:
@@ -140,6 +198,47 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             }
         })
 
+    def _handle_settings(self) -> None:
+        session = self._require_session()
+        self._send_json({"settings": self.repository.load_settings(session["user_id"])})
+
+    def _handle_plan_history(self) -> None:
+        session = self._require_session()
+        self._send_json({"items": self.repository.load_plan_history(session["user_id"])})
+
+    def _handle_weekly_summary(self) -> None:
+        session = self._require_session()
+        self._send_json({"summary": self.repository.weekly_summary(session["user_id"])})
+
+    def _handle_checkins(self) -> None:
+        session = self._require_session()
+        self._send_json({"items": self.repository.recent_checkins(session["user_id"])})
+
+    def _handle_timers(self) -> None:
+        session = self._require_session()
+        self._send_json({"items": self.repository.recent_timers(session["user_id"])})
+
+    def _handle_app_usage(self) -> None:
+        session = self._require_session()
+        self._send_json({"usage": self.repository.app_usage_summary(session["user_id"])})
+
+    def _handle_app_usage_detail(self, query: str) -> None:
+        session = self._require_session()
+        params = parse_qs(query)
+        app_name = self._single(params, "app", "").strip()
+        if not app_name:
+            raise ValueError("App name is required.")
+        self._send_json({"detail": self.repository.app_usage_detail(session["user_id"], app_name)})
+
+    def _handle_children(self) -> None:
+        session = self._require_session()
+        self._send_json({"items": self.repository.linked_children(session["user_id"])})
+
+    def _handle_suggestions(self) -> None:
+        session = self._require_session()
+        settings = self.repository.load_settings(session["user_id"])
+        self._send_json({"suggestions": self.repository.suggestion_engine(session["user_id"], settings)})
+
     def _handle_register(self) -> None:
         payload = self._read_json()
         required = ["first_name", "last_name", "email", "password", "country", "lang", "audience", "mode", "permissions"]
@@ -148,7 +247,6 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             self._send_json({"error": f"Missing required fields: {', '.join(missing)}"}, status=HTTPStatus.BAD_REQUEST)
             return
         self._validate_registration_payload(payload)
-
         profile = self.simulator.build_profile(
             audience=payload["audience"],
             permissions_granted=str(payload["permissions"]).lower() == "true",
@@ -192,6 +290,11 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         self.repository.delete_session(token)
         self._send_json({"ok": True})
 
+    def _handle_logout_all_devices(self) -> None:
+        session = self._require_session()
+        self.repository.delete_other_sessions(session["user_id"], session["token"])
+        self._send_json({"ok": True, "message": "Other sessions were signed out."})
+
     def _handle_update_profile(self) -> None:
         session = self._require_session()
         payload = self._read_json()
@@ -201,8 +304,32 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             self._send_json({"error": f"Missing required fields: {', '.join(missing)}"}, status=HTTPStatus.BAD_REQUEST)
             return
         payload["token"] = session["token"]
-        updated_session = self.repository.update_profile(user_id=session["user_id"], payload=payload)
+        updated_session = self.repository.update_profile(session["user_id"], payload)
         self._send_json({"session": updated_session})
+
+    def _handle_update_settings(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        app_name = str(payload.get("app_name", "")).strip() or "Bboo"
+        study_start = str(payload.get("study_start", "")).strip() or "16:00"
+        bedtime_target = str(payload.get("bedtime_target", "")).strip() or "22:30"
+        sleep_target_hours = int(payload.get("sleep_target_hours", 8))
+        default_session_minutes = int(payload.get("default_session_minutes", 30))
+        for value in [study_start, bedtime_target]:
+            if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
+                raise ValueError("Times must use HH:MM format.")
+        if sleep_target_hours < 5 or sleep_target_hours > 12:
+            raise ValueError("Sleep target must be between 5 and 12 hours.")
+        if default_session_minutes < 10 or default_session_minutes > 120:
+            raise ValueError("Default session minutes must be between 10 and 120.")
+        settings = self.repository.update_settings(session["user_id"], {
+            "app_name": app_name,
+            "study_start": study_start,
+            "bedtime_target": bedtime_target,
+            "sleep_target_hours": sleep_target_hours,
+            "default_session_minutes": default_session_minutes,
+        })
+        self._send_json({"settings": settings, "message": "Your app settings were updated."})
 
     def _handle_save_plan(self) -> None:
         session = self._require_session()
@@ -214,16 +341,72 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         minutes = int(payload.get("recommended_session_minutes", 0))
         if minutes < 10 or minutes > 120:
             raise ValueError("Session minutes must be between 10 and 120.")
+        settings = self.repository.load_settings(session["user_id"])
         plan = FocusPlan(
             generated_at=utc_now_iso(),
-            title=str(payload.get("title", "")).strip() or "Bboo focus recovery plan",
+            title=str(payload.get("title", "")).strip() or f"{settings['app_name']} focus recovery plan",
             recommended_session_minutes=minutes,
             focus_theme=str(payload.get("focus_theme", "")).strip() or "Electric momentum",
             steps=clean_steps or ["Start with one distraction-free session."],
             attention_game=str(payload.get("attention_game", "")).strip() or "Pattern Pulse: memorize the glowing sequence before the timer ends.",
         )
-        saved = self.repository.save_focus_plan(user_id=session["user_id"], plan=plan)
+        saved = self.repository.save_focus_plan(session["user_id"], plan)
         self._send_json({"plan": saved.to_dict(), "message": "Your plan was saved to MySQL."})
+
+    def _handle_record_checkin(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        mood = int(payload.get("mood", 0))
+        energy = int(payload.get("energy", 0))
+        notes = str(payload.get("notes", "")).strip()
+        if mood < 1 or mood > 5 or energy < 1 or energy > 5:
+            raise ValueError("Mood and energy must be between 1 and 5.")
+        self.repository.record_checkin(session["user_id"], mood, energy, notes)
+        self._send_json({"items": self.repository.recent_checkins(session["user_id"]), "message": "Daily check-in saved."})
+
+    def _handle_save_app_usage(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        app_name = str(payload.get("app_name", "")).strip()
+        usage_date = str(payload.get("usage_date", "")).strip()
+        usage_hours = float(payload.get("usage_hours", 0))
+        if not app_name:
+            raise ValueError("Application name is required.")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", usage_date):
+            raise ValueError("Usage date must use YYYY-MM-DD format.")
+        if usage_hours < 0 or usage_hours > 24:
+            raise ValueError("Usage hours must be between 0 and 24.")
+        self.repository.save_app_usage(session["user_id"], app_name, usage_date, usage_hours)
+        self._send_json({"usage": self.repository.app_usage_summary(session["user_id"]), "message": "App usage was saved."})
+
+    def _handle_timer_start(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        minutes = int(payload.get("minutes", 0))
+        label = str(payload.get("label", "")).strip() or "Deep work session"
+        if minutes < 10 or minutes > 120:
+            raise ValueError("Timer minutes must be between 10 and 120.")
+        self.repository.start_focus_timer(session["user_id"], minutes, label)
+        self._send_json({"items": self.repository.recent_timers(session["user_id"]), "message": "Focus timer started."})
+
+    def _handle_timer_complete(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        timer_id = int(payload.get("timer_id", 0))
+        completed = bool(payload.get("completed", True))
+        if timer_id <= 0:
+            raise ValueError("Timer id is required.")
+        self.repository.complete_focus_timer(session["user_id"], timer_id, completed)
+        self._send_json({"items": self.repository.recent_timers(session["user_id"]), "message": "Focus timer updated."})
+
+    def _handle_guardian_link(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        child_email = str(payload.get("child_email", "")).strip()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", child_email):
+            raise ValueError("Please enter a valid child email address.")
+        self.repository.link_child_account(session["user_id"], child_email)
+        self._send_json({"items": self.repository.linked_children(session["user_id"]), "message": "Child account linked."})
 
     def _build_profile(self, query: str, user_id: int | None = None):
         params = parse_qs(query)
@@ -233,10 +416,10 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         if user_id is not None:
             stored_profile = self.repository.load_profile_by_user_id(user_id)
             if stored_profile is not None:
-                return stored_profile
+                return self._profile_with_live_signals(user_id=user_id, profile=stored_profile)
         email = self._single(params, "email", "")
         if email:
-            stored_profile = self.repository.load_profile(email=email)
+            stored_profile = self.repository.load_profile(email)
             if stored_profile is not None:
                 return stored_profile
         return self.simulator.build_profile(
@@ -248,6 +431,23 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             country=self._single(params, "country", "Egypt"),
             preferred_language=lang,
             role=self._single(params, "mode", "user"),
+        )
+
+    def _profile_with_live_signals(self, user_id: int, profile):
+        signals = self.repository.live_behavior_signals(user_id)
+        reactive_social_hours = max(
+            float(profile.social_media_hours),
+            float(signals["today_usage_hours"]),
+            float(signals["average_daily_usage_hours"]),
+        )
+        reactive_focus_sessions = max(
+            int(profile.completed_focus_sessions_last_week),
+            int(signals["completed_focus_sessions_last_week"]),
+        )
+        return replace(
+            profile,
+            social_media_hours=reactive_social_hours,
+            completed_focus_sessions_last_week=reactive_focus_sessions,
         )
 
     def _read_json(self) -> dict:

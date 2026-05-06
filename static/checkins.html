@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bboo | Check-Ins</title>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body data-mode="user" data-page="checkins">
+    <div class="page-shell">
+      <header class="dashboard-topbar glass">
+        <div class="brand-row compact-brand">
+          <img src="/icon.svg" alt="Bboo icon" class="brand-icon small" />
+          <div><p class="eyebrow">Bboo check-ins</p><h2 id="topbarName">Bboo</h2></div>
+        </div>
+        <div class="topbar-actions">
+          <button id="logoutAllDevices" class="ghost-btn" type="button">Log out other devices</button>
+          <button id="backToAuth" class="ghost-btn" type="button">Switch account</button>
+        </div>
+      </header>
+      <div class="dashboard-layout">
+        <aside class="glass sidebar-nav">
+          <p class="sidebar-title">Pages</p>
+          <a href="/dashboard.html" class="sidebar-link">Dashboard</a>
+          <a href="/usage.html" class="sidebar-link">App usage</a>
+          <a href="/profile.html" class="sidebar-link">Profile</a>
+          <a href="/summary.html" class="sidebar-link">Weekly summary</a>
+          <a href="/checkins.html" class="sidebar-link is-current">Check-ins</a>
+          <a href="/plan.html" class="sidebar-link">Plan</a>
+          <a href="/insights.html" class="sidebar-link">Insights</a>
+        </aside>
+        <main class="dashboard">
+          <section class="two-column">
+            <article class="glass section-card">
+              <div class="section-head"><h3>Daily check-in</h3><p>Track how focused, energized, and emotionally steady you feel.</p></div>
+              <p id="checkinMessage" class="panel-message" aria-live="polite"></p>
+              <form id="checkinForm" class="control-grid">
+                <label><span>Mood (1-5)</span><input id="moodValue" type="number" min="1" max="5" value="4" required /></label>
+                <label><span>Energy (1-5)</span><input id="energyValue" type="number" min="1" max="5" value="4" required /></label>
+                <label class="wide-field"><span>Notes</span><textarea id="checkinNotes" rows="3" placeholder="What helped or distracted you today?"></textarea></label>
+              </form>
+              <button id="saveCheckin" class="ghost-btn save-panel-btn" type="button">Save check-in</button>
+              <div id="checkinHistory" class="stack"></div>
+            </article>
+            <article class="glass section-card">
+              <div class="section-head"><h3>Focus timer</h3><p>Run Pomodoro-style sessions and build real progress data.</p></div>
+              <p id="timerMessage" class="panel-message" aria-live="polite"></p>
+              <form id="timerForm" class="control-grid">
+                <label><span>Session label</span><input id="timerLabel" value="Deep work session" /></label>
+                <label><span>Minutes</span><input id="timerMinutes" type="number" min="10" max="120" value="30" required /></label>
+              </form>
+              <div class="action-row">
+                <button id="startTimer" class="ghost-btn" type="button">Start timer</button>
+                <button id="completeTimer" class="ghost-btn" type="button">Mark latest active timer done</button>
+              </div>
+              <div id="timerHistory" class="stack"></div>
+            </article>
+          </section>
+          <article class="glass section-card"><div id="sessionMessage" class="panel-message"></div></article>
+        </main>
+      </div>
+    </div>
+    <script src="/dashboard.js?v=4"></script>
+  </body>
+</html>

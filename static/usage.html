@@ -3,70 +3,68 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bboo | Dashboard</title>
+    <title>Bboo | App Usage</title>
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body data-mode="user" data-page="dashboard">
+  <body data-mode="user" data-page="usage">
     <div class="page-shell">
       <header class="dashboard-topbar glass">
         <div class="brand-row compact-brand">
           <img src="/icon.svg" alt="Bboo icon" class="brand-icon small" />
-          <div>
-            <p class="eyebrow">Bboo dashboard</p>
-            <h2 id="topbarName">Bboo</h2>
-          </div>
+          <div><p class="eyebrow">Bboo app usage</p><h2 id="topbarName">Bboo</h2></div>
         </div>
         <div class="topbar-actions">
           <button id="logoutAllDevices" class="ghost-btn" type="button">Log out other devices</button>
           <button id="backToAuth" class="ghost-btn" type="button">Switch account</button>
         </div>
       </header>
-
       <div class="dashboard-layout">
         <aside class="glass sidebar-nav">
           <p class="sidebar-title">Pages</p>
-          <a href="/dashboard.html" class="sidebar-link is-current">Dashboard</a>
-          <a href="/usage.html" class="sidebar-link">App usage</a>
+          <a href="/dashboard.html" class="sidebar-link">Dashboard</a>
+          <a href="/usage.html" class="sidebar-link is-current">App usage</a>
           <a href="/profile.html" class="sidebar-link">Profile</a>
           <a href="/summary.html" class="sidebar-link">Weekly summary</a>
           <a href="/checkins.html" class="sidebar-link">Check-ins</a>
           <a href="/plan.html" class="sidebar-link">Plan</a>
           <a href="/insights.html" class="sidebar-link">Insights</a>
         </aside>
-
         <main class="dashboard">
-          <section class="score-card glass">
-            <div>
-              <p class="card-label">Brain state</p>
-              <h1 id="headline">Your brain is currently Boost.</h1>
-            </div>
-            <div class="score-ring">
-              <div class="score-core">
-                <span id="focusScore">--</span>
-                <small>Focus score</small>
+          <section class="two-column">
+            <article class="glass section-card">
+              <div class="section-head">
+                <h3>Application usage history</h3>
+                <p>Track the last 7 days and update app usage by day.</p>
               </div>
-            </div>
-            <p id="stateBadge" class="state-badge">--</p>
+              <p id="appUsageMessage" class="panel-message" aria-live="polite"></p>
+              <form class="control-grid">
+                <label><span>Application name</span><input id="usageAppName" placeholder="TikTok" required /></label>
+                <label><span>Day</span><input id="usageDate" type="date" required /></label>
+                <label><span>Hours used</span><input id="usageHours" type="number" min="0" max="24" step="0.5" value="1.5" required /></label>
+              </form>
+              <button id="saveAppUsage" class="ghost-btn save-panel-btn" type="button">Save usage</button>
+              <div id="appUsageEntries" class="stack compact-stack"></div>
+            </article>
+            <article class="glass section-card">
+              <div class="section-head">
+                <h3>Interactive 7-day app dashboard</h3>
+                <p>Click any app to open its daily usage across the last week.</p>
+              </div>
+              <div id="appUsageApps" class="app-chip-grid"></div>
+              <div id="appUsageDetail" class="usage-detail-shell empty-state">Add or select an app to view its 7-day history.</div>
+            </article>
           </section>
-
-          <section class="metrics-grid" id="metrics"></section>
-          <section class="charts-grid" id="charts"></section>
-
           <article class="glass section-card">
-            <div class="section-head">
-              <h3>Session status</h3>
-              <p>This is the default overview page. Use the sidebar to move to the other pages.</p>
-            </div>
+            <div class="section-head"><h3>Session status</h3></div>
             <div id="sessionMessage" class="panel-message"></div>
           </article>
         </main>
       </div>
     </div>
-
     <script src="/dashboard.js?v=4"></script>
   </body>
 </html>
