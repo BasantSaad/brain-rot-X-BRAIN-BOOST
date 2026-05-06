@@ -218,6 +218,9 @@ function buildReactiveUsageChart(usage) {
 }
 
 function renderDashboardCharts(dashboard, usage = null) {
+  if (!dashEls.charts) {
+    return;
+  }
   const charts = [...(dashboard?.charts || [])];
   const reactiveUsageChart = usage ? buildReactiveUsageChart(usage) : null;
   if (reactiveUsageChart) {
