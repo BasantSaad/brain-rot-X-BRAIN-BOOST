@@ -42,6 +42,56 @@ Then open:
 http://127.0.0.1:8000
 ```
 
+## Run with Docker
+
+You can run Bboo fully in Docker without XAMPP.
+
+1. Install Docker Desktop and make sure it is running.
+2. Open PowerShell in the project folder:
+
+```powershell
+cd "D:\college materials\4 semester 2\System Analysis\Brain rot\brain-rot-X-BRAIN-BOOST"
+```
+
+3. If you already have the local Python server running on port `8000`, stop it first.
+4. Build and start the containers:
+
+```powershell
+docker compose up --build
+```
+
+5. Wait until you see the app container and MySQL container become healthy.
+6. Open the app:
+
+```text
+http://127.0.0.1:8000
+```
+
+Docker notes:
+
+- the Bboo web app runs on port `8000`
+- the MySQL container is exposed on port `3307` on your machine
+- inside Docker, the app connects to MySQL by service name `mysql`
+- the database data is stored in the Docker volume `bboo_mysql_data`
+
+Useful Docker commands:
+
+```powershell
+docker compose down
+docker compose up
+docker compose logs -f
+```
+
+If you also want to inspect the Docker MySQL database in phpMyAdmin or another client, use:
+
+```text
+Host: 127.0.0.1
+Port: 3307
+User: root
+Password: bboo_root
+Database: bboo
+```
+
 ## XAMPP MySQL setup
 
 1. Open XAMPP Control Panel.

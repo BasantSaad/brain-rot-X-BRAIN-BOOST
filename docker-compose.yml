@@ -1,0 +1,42 @@
+services:
+  mysql:
+    image: mysql:8.0
+    platform: linux/amd64
+    container_name: bboo-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: bboo_root
+      MYSQL_DATABASE: bboo
+    ports:
+      - "3307:3306"
+    volumes:
+      - bboo_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  app:
+    build:
+      context: .
+    platform: linux/amd64
+    container_name: bboo-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      BBOO_DB_HOST: mysql
+      BBOO_DB_PORT: 3306
+      BBOO_DB_USER: root
+      BBOO_DB_PASSWORD: bboo_root
+      BBOO_DB_NAME: bboo
+      BBOO_SESSION_TTL_HOURS: 24
+    ports:
+      - "8000:8000"
+    command: ["python", "app.py", "--host", "0.0.0.0", "--port", "8000"]
+
+volumes:
+  bboo_mysql_data:
