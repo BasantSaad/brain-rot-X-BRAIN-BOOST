@@ -1,6 +1,7 @@
 const sessionKey = "bboo-session";
 const session = JSON.parse(localStorage.getItem(sessionKey) || "null");
 let latestDashboardPayload = null;
+let assistantDockElements = null;
 
 if (!session?.token) {
   window.location.href = "/";
@@ -64,6 +65,10 @@ const dashEls = {
   usageDate: document.getElementById("usageDate"),
   usageHours: document.getElementById("usageHours"),
   saveAppUsage: document.getElementById("saveAppUsage"),
+  assistantPrompt: document.getElementById("assistantPrompt"),
+  assistantSend: document.getElementById("assistantSend"),
+  assistantHistory: document.getElementById("assistantHistory"),
+  assistantMessage: document.getElementById("assistantMessage"),
 };
 
 function authHeaders() {
@@ -386,6 +391,120 @@ function appUsageDetailCard(detail) {
   `;
 }
 
+function assistantHistoryCards(items) {
+  if (!items.length) {
+    return `<div class="empty-state mini-empty">No assistant messages yet. Ask Bboo to update a setting or explain your progress.</div>`;
+  }
+  return items.map((item) => `
+    <article class="assistant-bubble ${item.role === "assistant" ? "assistant-bubble-agent" : "assistant-bubble-user"}">
+      <div class="assistant-bubble-head">
+        <strong>${item.role === "assistant" ? "Bboo assistant" : "You"}</strong>
+        <small>${new Date(item.created_at).toLocaleString()}</small>
+      </div>
+      <p>${item.message}</p>
+      ${item.tool_name ? `<span class="assistant-tool-tag">${item.tool_name}</span>` : ""}
+    </article>
+  `).join("");
+}
+
+function ensureAssistantDock() {
+  if (assistantDockElements || !document.body) {
+    return assistantDockElements;
+  }
+  const shell = document.createElement("div");
+  shell.className = "assistant-dock";
+  shell.innerHTML = `
+    <button class="assistant-dock-toggle" type="button">Assistant</button>
+    <div class="assistant-dock-panel hidden">
+      <div class="assistant-dock-head">
+        <strong>Bboo assistant</strong>
+        <button class="assistant-dock-close ghost-btn" type="button">Close</button>
+      </div>
+      <p class="assistant-dock-copy">Ask me to change settings, start a timer, or explain your progress.</p>
+      <div class="assistant-dock-thread empty-state">No assistant messages yet.</div>
+      <textarea class="assistant-dock-input" rows="3" placeholder="Change my session time to 45 minutes"></textarea>
+      <button class="assistant-dock-send ghost-btn save-panel-btn" type="button">Send</button>
+      <div class="assistant-dock-status panel-message"></div>
+    </div>
+  `;
+  document.body.appendChild(shell);
+  assistantDockElements = {
+    shell,
+    toggle: shell.querySelector(".assistant-dock-toggle"),
+    panel: shell.querySelector(".assistant-dock-panel"),
+    close: shell.querySelector(".assistant-dock-close"),
+    thread: shell.querySelector(".assistant-dock-thread"),
+    input: shell.querySelector(".assistant-dock-input"),
+    send: shell.querySelector(".assistant-dock-send"),
+    status: shell.querySelector(".assistant-dock-status"),
+  };
+  assistantDockElements.toggle.addEventListener("click", () => assistantDockElements.panel.classList.toggle("hidden"));
+  assistantDockElements.close.addEventListener("click", () => assistantDockElements.panel.classList.add("hidden"));
+  assistantDockElements.send.addEventListener("click", submitAssistantDockMessage);
+  return assistantDockElements;
+}
+
+function renderAssistantEverywhere(items) {
+  if (dashEls.assistantHistory) {
+    dashEls.assistantHistory.innerHTML = assistantHistoryCards(items);
+  }
+  const dock = ensureAssistantDock();
+  if (dock) {
+    dock.thread.className = "assistant-dock-thread";
+    dock.thread.innerHTML = assistantHistoryCards(items);
+  }
+}
+
+async function submitAssistantMessage(message, statusElement, inputElement) {
+  if (!message) {
+    setPanelMessage(statusElement, "Type a message for the assistant first.", true);
+    return;
+  }
+  setPanelMessage(statusElement, "Assistant is working...");
+  const body = await apiRequest("/api/agent/chat", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      message,
+      lang: session.lang || "en",
+      mode: session.mode || "user",
+    }),
+  });
+  if (inputElement) {
+    inputElement.value = "";
+  }
+  renderAssistantEverywhere(body.history || []);
+  latestDashboardPayload = body.dashboard || latestDashboardPayload;
+  if (body.settings) {
+    applySettingsForm(body.settings);
+  }
+  if (body.dashboard) {
+    if (dashEls.headline) dashEls.headline.textContent = body.dashboard.headline;
+    if (dashEls.focusScore) dashEls.focusScore.textContent = body.dashboard.focus_score;
+    if (dashEls.stateBadge) dashEls.stateBadge.textContent = body.dashboard.current_state;
+    if (dashEls.metrics) dashEls.metrics.innerHTML = body.dashboard.metrics.map(metricCard).join("");
+    renderDashboardCharts(body.dashboard);
+  }
+  setPanelMessage(statusElement, body.assistant?.reply || "Done.");
+  await Promise.all([
+    loadWeeklySummary(),
+    loadSuggestions(),
+    loadTimers(),
+    loadPlanHistory(),
+    loadSettings(),
+    loadAppUsage(),
+  ]);
+}
+
+async function submitAssistantDockMessage() {
+  const dock = ensureAssistantDock();
+  try {
+    await submitAssistantMessage(dock.input.value.trim(), dock.status, dock.input);
+  } catch (error) {
+    setPanelMessage(dock.status, error.message, true);
+  }
+}
+
 function applyProfileForm(profile) {
   if (!dashEls.profileFirstName) {
     return;
@@ -543,6 +662,12 @@ async function loadSettings() {
   }
   const body = await apiRequest("/api/settings");
   applySettingsForm(body.settings || {});
+}
+
+async function loadAgentHistory() {
+  ensureAssistantDock();
+  const body = await apiRequest("/api/agent/history");
+  renderAssistantEverywhere(body.items || []);
 }
 
 async function loadDashboard() {
@@ -737,6 +862,14 @@ if (dashEls.saveAppUsage) dashEls.saveAppUsage.addEventListener("click", async (
   }
 });
 
+if (dashEls.assistantSend) dashEls.assistantSend.addEventListener("click", async () => {
+  try {
+    await submitAssistantMessage(dashEls.assistantPrompt.value.trim(), dashEls.assistantMessage, dashEls.assistantPrompt);
+  } catch (error) {
+    setPanelMessage(dashEls.assistantMessage, error.message, true);
+  }
+});
+
 if (dashEls.logoutAllDevices) dashEls.logoutAllDevices.addEventListener("click", async () => {
   try {
     const body = await apiRequest("/api/logout-all-devices", {
@@ -773,6 +906,7 @@ async function bootstrap() {
     loadTimers(),
     loadAppUsage(),
     loadChildren(),
+    loadAgentHistory(),
   ]);
 }
 

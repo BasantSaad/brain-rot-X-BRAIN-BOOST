@@ -184,6 +184,42 @@ class MySQLRepository:
                     CONSTRAINT fk_guardian_child FOREIGN KEY (child_user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
                 """,
+                """
+                CREATE TABLE IF NOT EXISTS agent_conversations (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    user_id BIGINT NOT NULL,
+                    title VARCHAR(255) NOT NULL DEFAULT 'Bboo assistant',
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_agent_conversation_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS agent_messages (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    conversation_id BIGINT NOT NULL,
+                    role VARCHAR(24) NOT NULL,
+                    message_text TEXT NOT NULL,
+                    intent VARCHAR(80) NULL,
+                    tool_name VARCHAR(120) NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_agent_message_conversation FOREIGN KEY (conversation_id) REFERENCES agent_conversations(id) ON DELETE CASCADE
+                )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS agent_action_logs (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    user_id BIGINT NOT NULL,
+                    conversation_id BIGINT NOT NULL,
+                    tool_name VARCHAR(120) NOT NULL,
+                    status VARCHAR(40) NOT NULL,
+                    input_json JSON NOT NULL,
+                    output_json JSON NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_agent_action_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    CONSTRAINT fk_agent_action_conversation FOREIGN KEY (conversation_id) REFERENCES agent_conversations(id) ON DELETE CASCADE
+                )
+                """,
             ]
             for statement in tables:
                 cursor.execute(statement)
@@ -580,6 +616,32 @@ class MySQLRepository:
         finally:
             connection.close()
 
+    def active_timer(self, user_id: int) -> dict[str, Any] | None:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT id, session_label, planned_minutes, started_at
+                FROM focus_timer_sessions
+                WHERE user_id = %s AND completed_at IS NULL
+                ORDER BY started_at DESC, id DESC
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "id": int(row["id"]),
+                "label": row["session_label"],
+                "planned_minutes": int(row["planned_minutes"]),
+                "started_at": self._to_iso(row["started_at"]),
+            }
+        finally:
+            connection.close()
+
     def recent_timers(self, user_id: int, limit: int = 10) -> list[dict[str, Any]]:
         connection = self._connection(database=self.config.database)
         try:
@@ -942,6 +1004,101 @@ class MySQLRepository:
                 "summary": f"Your strongest study window is around {best_study_time}, and your riskiest distraction window is {risk_window}.",
                 "energy_note": "Your energy is holding up well." if avg_energy >= 3.5 else "Your recent energy is dipping, so protect sleep and shorten evening scrolling.",
             }
+        finally:
+            connection.close()
+
+    def ensure_agent_conversation(self, user_id: int) -> int:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT id
+                FROM agent_conversations
+                WHERE user_id = %s
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return int(row["id"])
+            cursor.execute(
+                "INSERT INTO agent_conversations (user_id, title) VALUES (%s, %s)",
+                (user_id, "Bboo assistant"),
+            )
+            connection.commit()
+            return int(cursor.lastrowid)
+        finally:
+            connection.close()
+
+    def record_agent_message(self, conversation_id: int, role: str, message_text: str, intent: str | None = None, tool_name: str | None = None) -> None:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                """
+                INSERT INTO agent_messages (conversation_id, role, message_text, intent, tool_name)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (conversation_id, role, message_text, intent, tool_name),
+            )
+            cursor.execute("UPDATE agent_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s", (conversation_id,))
+            connection.commit()
+        finally:
+            connection.close()
+
+    def record_agent_action(
+        self,
+        *,
+        user_id: int,
+        conversation_id: int,
+        tool_name: str,
+        status: str,
+        input_payload: dict[str, Any],
+        output_payload: dict[str, Any],
+    ) -> None:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                """
+                INSERT INTO agent_action_logs (user_id, conversation_id, tool_name, status, input_json, output_json)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (user_id, conversation_id, tool_name, status, dumps(input_payload), dumps(output_payload)),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+    def agent_history(self, user_id: int, limit: int = 18) -> list[dict[str, Any]]:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT m.role, m.message_text, m.intent, m.tool_name, m.created_at
+                FROM agent_messages AS m
+                JOIN agent_conversations AS c ON c.id = m.conversation_id
+                WHERE c.user_id = %s
+                ORDER BY m.id DESC
+                LIMIT %s
+                """,
+                (user_id, limit),
+            )
+            rows = list(reversed(cursor.fetchall() or []))
+            return [
+                {
+                    "role": row["role"],
+                    "message": row["message_text"],
+                    "intent": row["intent"],
+                    "tool_name": row["tool_name"],
+                    "created_at": self._to_iso(row["created_at"]),
+                }
+                for row in rows
+            ]
         finally:
             connection.close()
 

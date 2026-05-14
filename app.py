@@ -3,15 +3,14 @@
 import argparse
 import json
 import re
-from dataclasses import replace
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from agent.focus_engine import FocusCoachConfig, FocusCoachEngine
+from agent.langgraph_runtime import LocalLangGraphAgent
+from services.app_service import BbooAppService
 from shared.schemas import FocusPlan, utc_now_iso
-from simulator.behavior_simulator import BehaviorSimulationConfig, BehaviorSimulator
 from storage.mysql_repository import MySQLConfig, MySQLRepository
 
 
@@ -35,9 +34,9 @@ def load_dotenv(env_path: Path) -> None:
 
 class BbooRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        self.engine = FocusCoachEngine(FocusCoachConfig())
-        self.simulator = BehaviorSimulator(BehaviorSimulationConfig())
         self.repository = MySQLRepository(MySQLConfig())
+        self.service = BbooAppService(self.repository)
+        self.assistant = LocalLangGraphAgent(self.service)
         super().__init__(*args, directory=str(STATIC_DIR), **kwargs)
 
     def do_GET(self) -> None:  # noqa: N802
@@ -78,6 +77,9 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
                 return
             if parsed.path == "/api/suggestions":
                 self._handle_suggestions()
+                return
+            if parsed.path == "/api/agent/history":
+                self._handle_agent_history()
                 return
             if parsed.path == "/api/health":
                 self._send_json({"status": "ok", "service": "bboo-demo"})
@@ -126,6 +128,9 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             if parsed.path == "/api/guardian-link":
                 self._handle_guardian_link()
                 return
+            if parsed.path == "/api/agent/chat":
+                self._handle_agent_chat()
+                return
             self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
         except ValueError as exc:
             self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
@@ -153,32 +158,23 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
     def _handle_dashboard(self, query: str) -> None:
         params = parse_qs(query)
         session = self._require_session()
-        profile = self._build_profile(query, session["user_id"])
-        settings = self.repository.load_settings(session["user_id"])
-        dashboard = self.engine.build_dashboard(
-            profile=profile,
-            language=self._single(params, "lang", session["lang"]),
-            mode=self._single(params, "mode", session["mode"]),
+        self._send_json(
+            self.service.dashboard_payload(
+                session=session,
+                lang=self._single(params, "lang", session["lang"]),
+                mode=self._single(params, "mode", session["mode"]),
+            )
         )
-        dashboard.app_name = settings["app_name"]
-        self.repository.record_dashboard_snapshot(session["user_id"], dashboard)
-        self._send_json(dashboard.to_dict())
 
     def _handle_plan(self, query: str) -> None:
         params = parse_qs(query)
         session = self._require_session()
-        profile = self._build_profile(query, session["user_id"])
-        settings = self.repository.load_settings(session["user_id"])
-        plan = self.repository.load_focus_plan(session["user_id"])
-        if plan is None:
-            plan = self.engine.build_personalized_plan(
-                profile=profile,
-                language=self._single(params, "lang", session["lang"]),
+        self._send_json(
+            self.service.plan_payload(
+                session=session,
+                lang=self._single(params, "lang", session["lang"]),
             )
-            plan.title = f"{settings['app_name']} focus recovery plan"
-            plan.recommended_session_minutes = int(settings["default_session_minutes"])
-            plan = self.repository.save_focus_plan(session["user_id"], plan)
-        self._send_json(plan.to_dict())
+        )
 
     def _handle_profile(self) -> None:
         session = self._require_session()
@@ -408,47 +404,62 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         self.repository.link_child_account(session["user_id"], child_email)
         self._send_json({"items": self.repository.linked_children(session["user_id"]), "message": "Child account linked."})
 
-    def _build_profile(self, query: str, user_id: int | None = None):
-        params = parse_qs(query)
-        lang = self._single(params, "lang", "en")
-        permissions = self._single(params, "permissions", "true").lower() == "true"
-        audience = self._single(params, "audience", "student")
-        if user_id is not None:
-            stored_profile = self.repository.load_profile_by_user_id(user_id)
-            if stored_profile is not None:
-                return self._profile_with_live_signals(user_id=user_id, profile=stored_profile)
-        email = self._single(params, "email", "")
-        if email:
-            stored_profile = self.repository.load_profile(email)
-            if stored_profile is not None:
-                return stored_profile
-        return self.simulator.build_profile(
-            audience=audience,
-            permissions_granted=permissions,
-            first_name=self._single(params, "first_name", ""),
-            last_name=self._single(params, "last_name", ""),
-            email=email,
-            country=self._single(params, "country", "Egypt"),
-            preferred_language=lang,
-            role=self._single(params, "mode", "user"),
+    def _handle_agent_history(self) -> None:
+        session = self._require_session()
+        self._send_json({"items": self.repository.agent_history(session["user_id"])})
+
+    def _handle_agent_chat(self) -> None:
+        session = self._require_session()
+        payload = self._read_json()
+        message = str(payload.get("message", "")).strip()
+        if not message:
+            raise ValueError("Please enter a message for the assistant.")
+
+        settings = self.repository.load_settings(session["user_id"])
+
+        conversation_id = self.repository.ensure_agent_conversation(session["user_id"])
+        self.repository.record_agent_message(conversation_id, "user", message)
+
+        try:
+            response = self.assistant.run(
+                message=message,
+                session=session,
+                settings=settings,
+            )
+        except ValueError as exc:
+            self.repository.record_agent_message(conversation_id, "assistant", str(exc), intent="error")
+            raise
+
+        self.repository.record_agent_message(
+            conversation_id,
+            "assistant",
+            response["reply"],
+            intent=response["intent"],
+            tool_name=response.get("tool_name"),
+        )
+        if response.get("tool_name"):
+            self.repository.record_agent_action(
+                user_id=session["user_id"],
+                conversation_id=conversation_id,
+                tool_name=response["tool_name"],
+                status=response["tool_status"],
+                input_payload={"message": message},
+                output_payload=response.get("action_payload", {}),
+            )
+
+        refreshed_settings = self.repository.load_settings(session["user_id"])
+        refreshed_dashboard = self._build_dashboard_payload(session=session, lang=session["lang"], mode=session["mode"])
+        self._send_json(
+            {
+                "assistant": response,
+                "history": self.repository.agent_history(session["user_id"]),
+                "settings": refreshed_settings,
+                "dashboard": refreshed_dashboard,
+            }
         )
 
-    def _profile_with_live_signals(self, user_id: int, profile):
-        signals = self.repository.live_behavior_signals(user_id)
-        reactive_social_hours = max(
-            float(profile.social_media_hours),
-            float(signals["today_usage_hours"]),
-            float(signals["average_daily_usage_hours"]),
-        )
-        reactive_focus_sessions = max(
-            int(profile.completed_focus_sessions_last_week),
-            int(signals["completed_focus_sessions_last_week"]),
-        )
-        return replace(
-            profile,
-            social_media_hours=reactive_social_hours,
-            completed_focus_sessions_last_week=reactive_focus_sessions,
-        )
+    def _build_dashboard_payload(self, *, session: dict, lang: str, mode: str) -> dict:
+        return self.service.dashboard_payload(session=session, lang=lang, mode=mode)
 
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
