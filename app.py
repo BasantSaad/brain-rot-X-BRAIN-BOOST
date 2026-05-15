@@ -1,5 +1,5 @@
 ﻿from __future__ import annotations
-
+#
 import argparse
 import json
 import re
@@ -302,11 +302,14 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         payload["token"] = session["token"]
         updated_session = self.repository.update_profile(session["user_id"], payload)
         self._send_json({"session": updated_session})
-
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#update that happens in the setting page or the Assistant that can update the profile data for the user and save it in the MYSQL
     def _handle_update_settings(self) -> None:
         session = self._require_session()
         payload = self._read_json()
+        #🚩🚩🚩🚩🚩🚩🚩🚩🚩🚩
         app_name = str(payload.get("app_name", "")).strip() or "Bboo"
+        #-------------------------------------------------------------
         study_start = str(payload.get("study_start", "")).strip() or "16:00"
         bedtime_target = str(payload.get("bedtime_target", "")).strip() or "22:30"
         sleep_target_hours = int(payload.get("sleep_target_hours", 8))
@@ -314,8 +317,8 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
         for value in [study_start, bedtime_target]:
             if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
                 raise ValueError("Times must use HH:MM format.")
-        if sleep_target_hours < 5 or sleep_target_hours > 12:
-            raise ValueError("Sleep target must be between 5 and 12 hours.")
+        if sleep_target_hours < 3 or sleep_target_hours > 12:
+            raise ValueError("Sleep target must be between 3 and 12 hours.")
         if default_session_minutes < 10 or default_session_minutes > 120:
             raise ValueError("Default session minutes must be between 10 and 120.")
         settings = self.repository.update_settings(session["user_id"], {
@@ -326,6 +329,8 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             "default_session_minutes": default_session_minutes,
         })
         self._send_json({"settings": settings, "message": "Your app settings were updated."})
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#---=---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     def _handle_save_plan(self) -> None:
         session = self._require_session()

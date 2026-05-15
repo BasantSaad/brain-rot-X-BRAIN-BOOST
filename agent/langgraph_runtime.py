@@ -275,18 +275,32 @@ class LocalLangGraphAgent:
     def _compose_reply(self, state: GraphState) -> None:
         if state.reply and state.tool_name is None and state.intent in {"knowledge_answer", "fallback"}:
             return
+    #--------------------------------------------------------------------------------------------------------------------
+    # Here we can customize the assistant's reply based on the intent and tool results, to make it more informative and personalized for the user.
+    #---------------------------------------------------------------------------------------------------------------------
         if state.intent == "update_session_minutes":
+            state.tool_result.get("settings", {}).get("session_minutes")
             state.reply = state.reply or f"Your default focus session is now {state.tool_args['minutes']} minutes."
             return
+        #🚩🚩🚩🚩 need to removed
         if state.intent == "update_app_name":
             name = state.tool_result.get("settings", {}).get("app_name", state.tool_args.get("app_name", "Bboo"))
             state.reply = state.reply or f"The application name is now {name}."
             return
+        #-----------------------------
         if state.intent == "update_bedtime_target":
-            state.reply = state.reply or f"Your bedtime target is now {state.tool_args['bedtime_target']}."
+            bedtime = (
+                state.tool_result.get("settings", {}).get("bedtime_target")
+                or state.tool_args.get("bedtime_target", "updated")
+            )
+            state.reply = state.reply or f"Your bedtime target is now {bedtime}."
             return
         if state.intent == "update_sleep_target_hours":
-            state.reply = state.reply or f"Your sleep target is now {state.tool_args['sleep_target_hours']} hours."
+            hours = (
+                state.tool_result.get("settings", {}).get("sleep_target_hours")
+                or state.tool_args.get("sleep_target_hours", "updated")
+            )
+            state.reply = state.reply or f"Your sleep target is now {hours} hours."
             return
         if state.intent == "start_focus_timer":
             state.reply = state.reply or f"I started a {state.tool_args['minutes']}-minute focus timer for you."

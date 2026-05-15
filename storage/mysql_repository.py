@@ -453,7 +453,10 @@ class MySQLRepository:
             }
         finally:
             connection.close()
-
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#Update Session Time----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#it used in **agent/assistant_engine.py** to change the profile Date Website:Application settings part
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     def update_settings(self, user_id: int, payload: dict[str, Any]) -> dict[str, Any]:
         connection = self._connection(database=self.config.database)
         try:
@@ -479,6 +482,9 @@ class MySQLRepository:
             return self.load_settings(user_id)
         finally:
             connection.close()
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     def load_focus_plan(self, user_id: int) -> FocusPlan | None:
         connection = self._connection(database=self.config.database)
@@ -772,7 +778,6 @@ class MySQLRepository:
             }
         finally:
             connection.close()
-
     def live_behavior_signals(self, user_id: int) -> dict[str, Any]:
         connection = self._connection(database=self.config.database)
         try:
@@ -902,7 +907,10 @@ class MySQLRepository:
             connection.commit()
         finally:
             connection.close()
-
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#weekly summary retrieval----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#it used in **agent/assistant_engine.py** to get the weekly summary of the user and use it in the assistant response to provide more personalized insights and suggestions based on the user's recent focus and behavior patterns. This allows the assistant to tailor its advice and support to the user's current needs and progress.
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     def weekly_summary(self, user_id: int) -> dict[str, Any]:
         connection = self._connection(database=self.config.database)
         try:
@@ -958,7 +966,12 @@ class MySQLRepository:
             }
         finally:
             connection.close()
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#suggestion engine----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#it used in **agent/assistant_engine.py** to generate personalized suggestions for the user based
     def suggestion_engine(self, user_id: int, settings: dict[str, Any]) -> dict[str, Any]:
         connection = self._connection(database=self.config.database)
         try:
@@ -1006,6 +1019,7 @@ class MySQLRepository:
             }
         finally:
             connection.close()
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     def ensure_agent_conversation(self, user_id: int) -> int:
         connection = self._connection(database=self.config.database)
