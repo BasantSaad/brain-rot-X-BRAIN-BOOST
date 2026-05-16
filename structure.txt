@@ -1,0 +1,107 @@
+Folder PATH listing for volume New Volume
+Volume serial number is 000000ED A7D6:DF00
+D:.
+¦   .dockerignore
+¦   .env
+¦   .env.example
+¦   api_fastapi.py
+¦   app.py
+¦   docker-compose.yml
+¦   Dockerfile
+¦   README.md
+¦   requirements.txt
+¦   structure.txt
+¦   
++---agent
+¦   ¦   assistant_engine.py
+¦   ¦   embeddings.py
+¦   ¦   focus_engine.py
+¦   ¦   langgraph_runtime.py
+¦   ¦   ollama_client.py
+¦   ¦   rag_store.py
+¦   ¦   tools.py
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---__pycache__
+¦           assistant_engine.cpython-314.pyc
+¦           embeddings.cpython-314.pyc
+¦           focus_engine.cpython-314.pyc
+¦           langgraph_runtime.cpython-314.pyc
+¦           ollama_client.cpython-314.pyc
+¦           rag_store.cpython-314.pyc
+¦           tools.cpython-314.pyc
+¦           __init__.cpython-314.pyc
+¦           
++---assets
+¦       ARCHITECTURE.md
+¦       ARCHITECTURE_DIAGRAM.md
+¦       Bboo System C4 Diagrams Overview.md
+¦       Bboo.pdf
+¦       Bboo_Project_Presentation.pptx
+¦       c4code.png
+¦       c4component.png
+¦       c4context.png
+¦       c4continer.png
+¦       dfdcontext.png
+¦       dfdlevel0.png
+¦       dfdlevel1p1.png
+¦       dfdlevel1p2.png
+¦       dfdlevel1p3.png
+¦       Screen Recording 2026-05-06 193317.mp4
+¦       SYSTEM_FULL_DOCUMENTATION.md
+¦       
++---services
+¦   ¦   app_service.py
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---__pycache__
+¦           app_service.cpython-314.pyc
+¦           __init__.cpython-314.pyc
+¦           
++---shared
+¦   ¦   schemas.py
+¦   ¦   topics.py
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---__pycache__
+¦           schemas.cpython-314.pyc
+¦           topics.cpython-314.pyc
+¦           __init__.cpython-314.pyc
+¦           
++---simulator
+¦   ¦   behavior_simulator.py
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---__pycache__
+¦           behavior_simulator.cpython-314.pyc
+¦           __init__.cpython-314.pyc
+¦           
++---static
+¦       app.js
+¦       assistant.html
+¦       auth.js
+¦       checkins.html
+¦       dashboard.html
+¦       dashboard.js
+¦       icon.svg
+¦       index.html
+¦       insights.html
+¦       plan.html
+¦       profile.html
+¦       styles.css
+¦       summary.html
+¦       usage.html
+¦       
++---storage
+¦   ¦   mysql_repository.py
+¦   ¦   schema.sql
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---__pycache__
+¦           mysql_repository.cpython-314.pyc
+¦           __init__.cpython-314.pyc
+¦           
++---__pycache__
+        api_fastapi.cpython-314.pyc
+        app.cpython-314.pyc
+        
