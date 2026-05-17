@@ -1,0 +1,476 @@
+@startuml BbooSystemClassDiagram
+
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam classBackgroundColor #FFFFFF
+skinparam classBorderColor #444444
+skinparam classFontSize 13
+skinparam classAttributeFontSize 11
+skinparam classStereotypeFontSize 10
+skinparam ArrowColor #333333
+skinparam ArrowThickness 1.5
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 80
+skinparam packageBackgroundColor #F0F4FF
+skinparam packageBorderColor #5566AA
+skinparam packageFontSize 14
+skinparam packageFontStyle bold
+
+' =====================================================================
+' PACKAGE: API LAYER
+' =====================================================================
+package "API Layer" <<Frame>> {
+
+  class FastAPIApp <<entrypoint>> {
+    + title : str
+    + version : str
+    --
+    ' UI Page Routes
+    + root() : FileResponse
+    + dashboard_page() : FileResponse
+    + assistant_page() : FileResponse
+    + usage_page() : FileResponse
+    + profile_page() : FileResponse
+    + summary_page() : FileResponse
+    + checkins_page() : FileResponse
+    + plan_page() : FileResponse
+    + insights_page() : FileResponse
+    ' Static Assets
+    + styles_asset() : FileResponse
+    + dashboard_script() : FileResponse
+    + auth_script() : FileResponse
+    + icon_asset() : FileResponse
+    ' Auth APIs
+    + register(payload) : JSONResponse
+    + login(payload) : dict
+    + logout(session: dict) : dict
+    + logout_all_devices(session: dict) : dict
+    ' Profile APIs
+    + get_profile(session: dict) : dict
+    + update_profile(payload, session: dict) : dict
+    ' Dashboard & Plans
+    + get_dashboard(lang, mode, session: dict) : dict
+    + get_plan(lang, session: dict) : dict
+    + save_plan(payload, session: dict) : dict
+    + get_plan_history(session: dict) : dict
+    + get_weekly_summary(session: dict) : dict
+    ' Settings
+    + get_settings(session: dict) : dict
+    + update_settings(payload, session: dict) : dict
+    ' Checkins & Timers
+    + get_checkins(session: dict) : dict
+    + record_checkin(payload, session: dict) : dict
+    + get_timers(session: dict) : dict
+    + start_timer(payload, session: dict) : dict
+    + complete_timer(payload, session: dict) : dict
+    ' App Usage
+    + get_app_usage(session: dict) : dict
+    + get_app_usage_detail(app, session: dict) : dict
+    + save_app_usage(payload, session: dict) : dict
+    ' Guardian System
+    + get_children(session: dict) : dict
+    + guardian_link(payload, session: dict) : dict
+    ' AI Agent
+    + agent_chat(payload, session: dict) : dict
+    + agent_history(session: dict) : dict
+    ' System
+    + health() : dict
+    --
+    ' Helper functions (Now properly marked as Private)
+    - require_session(authorization) : dict
+    - optional_token(authorization) : str
+    - validate_registration_payload(payload) : None
+    - ensure_required(payload, fields) : None
+    - profile_payload(session) : dict
+  }
+
+  class LegacyHTTPServer <<entrypoint>> {
+    + host : str
+    + port : int
+    --
+    + do_GET() : None
+    + do_POST() : None
+    + do_PUT() : None
+    + end_headers() : None
+    ' Route Handlers
+    + _handle_dashboard() : None
+    + _handle_plan() : None
+    + _handle_profile() : None
+    + _handle_settings() : None
+    + _handle_checkins() : None
+    + _handle_timers() : None
+    + _handle_app_usage() : None
+    + _handle_register() : None
+    + _handle_login() : None
+    + _handle_logout() : None
+    + _handle_agent_chat() : None
+    + _handle_agent_history() : None
+    ' Utils (Now properly marked as Private)
+    - _build_dashboard_payload() : dict
+    - _read_json() : dict
+    - _single() : Any
+    - _bearer_token() : str
+    - _send_json() : None
+    - load_dotenv() : None
+    - parse_args() : Namespace
+    + main() : None
+  }
+}
+
+' =====================================================================
+' PACKAGE: SERVICE LAYER
+' =====================================================================
+package "Service Layer" <<Frame>> {
+
+  class BbooAppService {
+    - repository : MySQLRepository
+    - simulator : BehaviorSimulator
+    - focus_engine : FocusEngine
+    --
+    + dashboard_payload(session: dict, lang: str, mode: str) : dict
+    + plan_payload(session: dict, lang: str) : dict
+    + update_setting_field(user_id: int, key: str, value: Any) : dict
+  }
+}
+
+' =====================================================================
+' PACKAGE: AGENT LAYER
+' =====================================================================
+package "Agent Layer" <<Frame>> {
+
+  class LocalLangGraphAgent {
+    - service : BbooAppService
+    - rag : LocalChromaStore
+    - embedder : SimpleEmbeddingModel
+    - ollama : OllamaClient
+    - tools : BbooToolRegistry
+    --
+    + run(message: str, session: dict, settings: dict) : dict
+    - _retrieve_context(message: str) : str
+    - _plan(message: str, context: str, session: dict, settings: dict) : dict
+    - _select_tool(intent: str, args: dict) : str
+    - _execute_tool(tool_name: str, args: dict, session: dict, settings: dict) : dict
+  }
+
+  class AssistantEngine <<legacy>> {
+    - service : BbooAppService
+    - rag : LocalChromaStore
+    --
+    + handle_message(message, session, settings) : dict
+    + retrieve_context(message) : str
+    + to_dict() : dict
+  }
+
+  class BbooToolRegistry {
+    - service : BbooAppService
+    - repository : MySQLRepository
+    --
+    + get_dashboard_summary(session: dict, settings: dict) : dict
+    + get_weekly_summary(user_id: int) : dict
+    + get_suggestions(user_id: int, settings: dict) : dict
+    + get_app_usage_summary(user_id: int) : dict
+    + update_session_minutes(user_id: int, minutes: int) : dict
+    + update_app_name(user_id: int, name: str) : dict
+    + update_bedtime_target(user_id: int, time: str) : dict
+    + update_sleep_target_hours(user_id: int, hours: float) : dict
+    + start_focus_timer(user_id: int, minutes: int, label: str) : dict
+    + stop_focus_timer(user_id: int) : dict
+    - _dashboard_summary(session: dict, settings: dict) : dict
+    - _weekly_summary(user_id: int) : dict
+    - _suggestions(user_id: int, settings: dict) : dict
+    - _start_focus_timer(user_id: int, minutes: int, label: str) : dict
+  }
+}
+
+' =====================================================================
+' PACKAGE: LLM / RETRIEVAL LAYER
+' =====================================================================
+package "LLM & Retrieval Layer" <<Frame>> {
+
+  class OllamaClient {
+    - endpoint : str
+    - model : str
+    --
+    + plan(message, context, session, settings) : dict
+  }
+
+  class LocalChromaStore {
+    - documents : list
+    - embedder : SimpleEmbeddingModel
+    --
+    + query(text, top_k) : list
+  }
+
+  class SimpleEmbeddingModel {
+    - idf : dict
+    --
+    + embed(text) : dict
+    + similarity(vec_a, vec_b) : float
+    + build_idf(corpus) : None
+    + tfidf_vector(text) : dict
+  }
+}
+
+' =====================================================================
+' PACKAGE: FOCUS ENGINE LAYER
+' =====================================================================
+package "Focus Engine Layer" <<Frame>> {
+
+  class FocusEngine {
+    --
+    + build_dashboard(profile: UserProfile, usage: list, checkins: list, timers: list) : DashboardSnapshot
+    + build_personalized_plan(profile: UserProfile, score: float, settings: dict) : FocusPlan
+    - _focus_score(usage: list, checkins: list, timers: list) : float
+    - _metrics(score: float, profile: UserProfile) : list
+    - _habits(score: float, profile: UserProfile) : list
+    - _insights(score: float, profile: UserProfile) : list
+    - _charts(usage: list, checkins: list) : list
+  }
+}
+
+' =====================================================================
+' PACKAGE: SIMULATOR LAYER
+' =====================================================================
+package "Simulator Layer" <<Frame>> {
+
+  class BehaviorSimulator {
+    --
+    + __init__() : None
+    + build_profile(audience, permissions_granted, first_name,\n  last_name, email, country, preferred_language, role) : UserProfile
+  }
+}
+
+' =====================================================================
+' PACKAGE: REPOSITORY LAYER
+' =====================================================================
+package "Repository Layer" <<Frame>> {
+
+  class MySQLConfig {
+    + host : str
+    + port : int
+    + database : str
+    + user : str
+    + password : str
+  }
+
+  class MySQLRepository {
+    - config : MySQLConfig
+    --
+    + initialize() : None
+    ' Auth
+    + create_user(payload, profile) : dict
+    + authenticate_user(email, password, language) : dict
+    + load_session(token) : dict
+    + delete_session(token) : None
+    + delete_other_sessions(user_id, token) : None
+    ' Profile
+    + load_profile_by_user_id(user_id) : UserProfile
+    + update_profile(user_id, payload) : dict
+    ' Settings
+    + load_settings(user_id) : dict
+    + update_settings(user_id, payload) : dict
+    ' Plans
+    + save_focus_plan(user_id, plan) : FocusPlan
+    + load_plan_history(user_id) : list
+    ' Checkins
+    + record_checkin(user_id, mood, energy, notes) : None
+    + recent_checkins(user_id) : list
+    ' Timers
+    + start_focus_timer(user_id, minutes, label) : None
+    + complete_focus_timer(user_id, timer_id, completed) : None
+    + active_timer(user_id) : dict
+    + recent_timers(user_id) : list
+    ' App Usage
+    + save_app_usage(user_id, app_name, usage_date, usage_hours) : None
+    + app_usage_summary(user_id) : list
+    + app_usage_detail(user_id, app_name) : list
+    ' Analytics
+    + weekly_summary(user_id) : dict
+    + app_usage_summary(user_id) : list
+    + live_behavior_signals(user_id) : dict
+    + suggestion_engine(user_id, settings) : list
+    ' Dashboard Snapshots
+    + save_dashboard_snapshot(user_id, score) : None
+    ' Guardian
+    + link_child_account(user_id, child_email) : None
+    + linked_children(user_id) : list
+    ' Agent Memory
+    + ensure_agent_conversation(user_id) : int
+    + record_agent_message(conversation_id, role, content, intent, tool_name) : None
+    + record_agent_action(user_id, conversation_id, tool_name,\n  status, input_payload, output_payload) : None
+    + agent_history(user_id) : list
+  }
+}
+
+' =====================================================================
+' PACKAGE: DOMAIN MODEL LAYER (shared/schemas.py)
+' =====================================================================
+package "Domain Model Layer" <<Frame>> {
+
+  class AccountProfile {
+    + first_name : str
+    + last_name : str
+    + email : str
+    + country : str
+    + preferred_language : str
+    + role : str
+  }
+
+  class UserProfile {
+    + account : AccountProfile
+    + permissions_granted : bool
+    + audience : str
+    --
+    + to_dict() : dict
+  }
+
+  class FocusMetric {
+    + label : str
+    + value : Any
+    + unit : str
+    + trend : str
+    --
+    + to_dict() : dict
+  }
+
+  class HabitCard {
+    + title : str
+    + description : str
+    + frequency : str
+    + icon : str
+    --
+    + to_dict() : dict
+  }
+
+  class InsightCard {
+    + title : str
+    + body : str
+    + severity : str
+    --
+    + to_dict() : dict
+  }
+
+  class ParentGuidance {
+    + title : str
+    + body : str
+    --
+    + to_dict() : dict
+  }
+
+  class ProfileField {
+    + key : str
+    + label : str
+    + value : Any
+    --
+    + to_dict() : dict
+  }
+
+  class TrendPoint {
+    + date : str
+    + value : float
+    --
+    + to_dict() : dict
+  }
+
+  class ChartSeries {
+    + label : str
+    + points : list[TrendPoint]
+    --
+    + to_dict() : dict
+  }
+
+  class DashboardSnapshot {
+    + focus_score : float
+    + brain_state : str
+    + metrics : list[FocusMetric]
+    + habits : list[HabitCard]
+    + insights : list[InsightCard]
+    + charts : list[ChartSeries]
+    + parent_guidance : list[ParentGuidance]
+    --
+    + to_dict() : dict
+  }
+
+  class FocusPlan {
+    + generated_at : str
+    + title : str
+    + recommended_session_minutes : int
+    + focus_theme : str
+    + steps : list[str]
+    + attention_game : str
+    --
+    + to_dict() : dict
+  }
+}
+
+' =====================================================================
+' RELATIONSHIPS — API Layer
+' =====================================================================
+FastAPIApp  --> BbooAppService        : uses >
+FastAPIApp  --> MySQLRepository       : uses >
+FastAPIApp  --> LocalLangGraphAgent   : uses >
+LegacyHTTPServer --> BbooAppService   : uses >
+LegacyHTTPServer --> MySQLRepository  : uses >
+LegacyHTTPServer --> LocalLangGraphAgent : uses >
+
+' =====================================================================
+' RELATIONSHIPS — Service Layer
+' =====================================================================
+BbooAppService --> MySQLRepository    : uses >
+BbooAppService --> BehaviorSimulator  : uses >
+BbooAppService --> FocusEngine        : uses >
+
+' =====================================================================
+' RELATIONSHIPS — Agent Layer
+' =====================================================================
+LocalLangGraphAgent --> BbooAppService     : uses >
+LocalLangGraphAgent --> LocalChromaStore   : queries >
+LocalLangGraphAgent --> SimpleEmbeddingModel : uses >
+LocalLangGraphAgent --> OllamaClient       : plans with >
+LocalLangGraphAgent --> BbooToolRegistry   : executes >
+AssistantEngine --> BbooAppService         : uses >
+AssistantEngine --> LocalChromaStore       : queries >
+BbooToolRegistry --> BbooAppService        : calls >
+BbooToolRegistry --> MySQLRepository       : calls >
+
+' =====================================================================
+' RELATIONSHIPS — LLM / Retrieval Layer
+' =====================================================================
+LocalChromaStore --> SimpleEmbeddingModel  : uses >
+
+' =====================================================================
+' RELATIONSHIPS — Focus Engine (Corrected to dynamic Dependency lines)
+' =====================================================================
+FocusEngine ..> DashboardSnapshot : <<create>>
+FocusEngine ..> FocusPlan         : <<create>>
+FocusEngine ..> FocusMetric       : <<create>>
+FocusEngine ..> HabitCard         : <<create>>
+FocusEngine ..> InsightCard       : <<create>>
+FocusEngine ..> ChartSeries       : <<create>>
+
+' =====================================================================
+' RELATIONSHIPS — Simulator (Corrected to dynamic Dependency lines)
+' =====================================================================
+BehaviorSimulator ..> UserProfile     : <<create>>
+BehaviorSimulator ..> AccountProfile  : <<create>>
+
+' =====================================================================
+' RELATIONSHIPS — Repository
+' =====================================================================
+MySQLRepository --> MySQLConfig     : configured by >
+MySQLRepository --> UserProfile     : loads >
+MySQLRepository --> FocusPlan       : saves / loads >
+
+' =====================================================================
+' RELATIONSHIPS — Domain Model
+' =====================================================================
+UserProfile       *-- AccountProfile   : contains
+DashboardSnapshot *-- FocusMetric      : contains
+DashboardSnapshot *-- HabitCard        : contains
+DashboardSnapshot *-- InsightCard      : contains
+DashboardSnapshot *-- ChartSeries      : contains
+DashboardSnapshot *-- ParentGuidance   : contains
+ChartSeries       *-- TrendPoint       : contains
+
+@enduml

@@ -1,6 +1,5 @@
 @startuml BbooSystemClassDiagram
 
-!theme plain
 skinparam backgroundColor #FAFAFA
 skinparam classBackgroundColor #FFFFFF
 skinparam classBorderColor #444444
@@ -26,7 +25,6 @@ package "API Layer" <<Frame>> {
     + title : str
     + version : str
     --
-    ' UI Page Routes
     + root() : FileResponse
     + dashboard_page() : FileResponse
     + assistant_page() : FileResponse
@@ -36,48 +34,36 @@ package "API Layer" <<Frame>> {
     + checkins_page() : FileResponse
     + plan_page() : FileResponse
     + insights_page() : FileResponse
-    ' Static Assets
     + styles_asset() : FileResponse
     + dashboard_script() : FileResponse
     + auth_script() : FileResponse
     + icon_asset() : FileResponse
-    ' Auth APIs
     + register(payload) : JSONResponse
     + login(payload) : dict
     + logout(authorization) : dict
     + logout_all_devices(authorization) : dict
-    ' Profile APIs
     + get_profile(authorization) : dict
     + update_profile(payload, authorization) : dict
-    ' Dashboard & Plans
     + get_dashboard(lang, mode, authorization) : dict
     + get_plan(lang, authorization) : dict
     + save_plan(payload, authorization) : dict
     + get_plan_history(authorization) : dict
     + get_weekly_summary(authorization) : dict
-    ' Settings
     + get_settings(authorization) : dict
     + update_settings(payload, authorization) : dict
-    ' Checkins & Timers
     + get_checkins(authorization) : dict
     + record_checkin(payload, authorization) : dict
     + get_timers(authorization) : dict
     + start_timer(payload, authorization) : dict
     + complete_timer(payload, authorization) : dict
-    ' App Usage
     + get_app_usage(authorization) : dict
     + get_app_usage_detail(app, authorization) : dict
     + save_app_usage(payload, authorization) : dict
-    ' Guardian System
     + get_children(authorization) : dict
     + guardian_link(payload, authorization) : dict
-    ' AI Agent
     + agent_chat(payload, authorization) : dict
     + agent_history(authorization) : dict
-    ' System
     + health() : dict
-    --
-    ' Helper functions
     + require_session(authorization) : dict
     + optional_token(authorization) : str
     + validate_registration_payload(payload) : None
@@ -93,7 +79,6 @@ package "API Layer" <<Frame>> {
     + do_POST() : None
     + do_PUT() : None
     + end_headers() : None
-    ' Route Handlers
     + _handle_dashboard() : None
     + _handle_plan() : None
     + _handle_profile() : None
@@ -106,7 +91,6 @@ package "API Layer" <<Frame>> {
     + _handle_logout() : None
     + _handle_agent_chat() : None
     + _handle_agent_history() : None
-    ' Utils
     + _build_dashboard_payload() : dict
     + _read_json() : dict
     + _single() : Any
@@ -184,7 +168,7 @@ package "Agent Layer" <<Frame>> {
 }
 
 ' =====================================================================
-' PACKAGE: LLM / RETRIEVAL LAYER
+' PACKAGE: LLM & RETRIEVAL LAYER
 ' =====================================================================
 package "LLM & Retrieval Layer" <<Frame>> {
 
@@ -237,7 +221,7 @@ package "Simulator Layer" <<Frame>> {
   class BehaviorSimulator {
     --
     + __init__() : None
-    + build_profile(audience, permissions_granted, first_name,\n  last_name, email, country, preferred_language, role) : UserProfile
+    + build_profile(audience, permissions_granted, first_name, last_name, email, country, preferred_language, role) : UserProfile
   }
 }
 
@@ -258,53 +242,41 @@ package "Repository Layer" <<Frame>> {
     - config : MySQLConfig
     --
     + initialize() : None
-    ' Auth
     + create_user(payload, profile) : dict
     + authenticate_user(email, password, language) : dict
     + load_session(token) : dict
     + delete_session(token) : None
     + delete_other_sessions(user_id, token) : None
-    ' Profile
     + load_profile_by_user_id(user_id) : UserProfile
     + update_profile(user_id, payload) : dict
-    ' Settings
     + load_settings(user_id) : dict
     + update_settings(user_id, payload) : dict
-    ' Plans
     + save_focus_plan(user_id, plan) : FocusPlan
     + load_plan_history(user_id) : list
-    ' Checkins
     + record_checkin(user_id, mood, energy, notes) : None
     + recent_checkins(user_id) : list
-    ' Timers
     + start_focus_timer(user_id, minutes, label) : None
     + complete_focus_timer(user_id, timer_id, completed) : None
     + active_timer(user_id) : dict
     + recent_timers(user_id) : list
-    ' App Usage
     + save_app_usage(user_id, app_name, usage_date, usage_hours) : None
     + app_usage_summary(user_id) : list
     + app_usage_detail(user_id, app_name) : list
-    ' Analytics
     + weekly_summary(user_id) : dict
-    + app_usage_summary(user_id) : list
     + live_behavior_signals(user_id) : dict
     + suggestion_engine(user_id, settings) : list
-    ' Dashboard Snapshots
     + save_dashboard_snapshot(user_id, score) : None
-    ' Guardian
     + link_child_account(user_id, child_email) : None
     + linked_children(user_id) : list
-    ' Agent Memory
     + ensure_agent_conversation(user_id) : int
     + record_agent_message(conversation_id, role, content, intent, tool_name) : None
-    + record_agent_action(user_id, conversation_id, tool_name,\n  status, input_payload, output_payload) : None
+    + record_agent_action(user_id, conversation_id, tool_name, status, input_payload, output_payload) : None
     + agent_history(user_id) : list
   }
 }
 
 ' =====================================================================
-' PACKAGE: DOMAIN MODEL LAYER (shared/schemas.py)
+' PACKAGE: DOMAIN MODEL LAYER
 ' =====================================================================
 package "Domain Model Layer" <<Frame>> {
 
@@ -375,7 +347,7 @@ package "Domain Model Layer" <<Frame>> {
 
   class ChartSeries {
     + label : str
-    + points : list[TrendPoint]
+    + points : list
     --
     + to_dict() : dict
   }
@@ -383,11 +355,11 @@ package "Domain Model Layer" <<Frame>> {
   class DashboardSnapshot {
     + focus_score : float
     + brain_state : str
-    + metrics : list[FocusMetric]
-    + habits : list[HabitCard]
-    + insights : list[InsightCard]
-    + charts : list[ChartSeries]
-    + parent_guidance : list[ParentGuidance]
+    + metrics : list
+    + habits : list
+    + insights : list
+    + charts : list
+    + parent_guidance : list
     --
     + to_dict() : dict
   }
@@ -397,7 +369,7 @@ package "Domain Model Layer" <<Frame>> {
     + title : str
     + recommended_session_minutes : int
     + focus_theme : str
-    + steps : list[str]
+    + steps : list
     + attention_game : str
     --
     + to_dict() : dict
@@ -405,72 +377,60 @@ package "Domain Model Layer" <<Frame>> {
 }
 
 ' =====================================================================
-' RELATIONSHIPS — API Layer
+' RELATIONSHIPS
 ' =====================================================================
-FastAPIApp  --> BbooAppService        : uses >
-FastAPIApp  --> MySQLRepository       : uses >
-FastAPIApp  --> LocalLangGraphAgent   : uses >
-LegacyHTTPServer --> BbooAppService   : uses >
-LegacyHTTPServer --> MySQLRepository  : uses >
-LegacyHTTPServer --> LocalLangGraphAgent : uses >
 
-' =====================================================================
-' RELATIONSHIPS — Service Layer
-' =====================================================================
-BbooAppService --> MySQLRepository    : uses >
-BbooAppService --> BehaviorSimulator  : uses >
-BbooAppService --> FocusEngine        : uses >
+' API Layer
+FastAPIApp --> BbooAppService        : uses
+FastAPIApp --> MySQLRepository       : uses
+FastAPIApp --> LocalLangGraphAgent   : uses
+LegacyHTTPServer --> BbooAppService  : uses
+LegacyHTTPServer --> MySQLRepository : uses
+LegacyHTTPServer --> LocalLangGraphAgent : uses
 
-' =====================================================================
-' RELATIONSHIPS — Agent Layer
-' =====================================================================
-LocalLangGraphAgent --> BbooAppService     : uses >
-LocalLangGraphAgent --> LocalChromaStore   : queries >
-LocalLangGraphAgent --> SimpleEmbeddingModel : uses >
-LocalLangGraphAgent --> OllamaClient       : plans with >
-LocalLangGraphAgent --> BbooToolRegistry   : executes >
-AssistantEngine --> BbooAppService         : uses >
-AssistantEngine --> LocalChromaStore       : queries >
-BbooToolRegistry --> BbooAppService        : calls >
-BbooToolRegistry --> MySQLRepository       : calls >
+' Service Layer
+BbooAppService --> MySQLRepository   : uses
+BbooAppService --> BehaviorSimulator : uses
+BbooAppService --> FocusEngine       : uses
 
-' =====================================================================
-' RELATIONSHIPS — LLM / Retrieval Layer
-' =====================================================================
-LocalChromaStore --> SimpleEmbeddingModel  : uses >
+' Agent Layer
+LocalLangGraphAgent --> BbooAppService      : uses
+LocalLangGraphAgent --> LocalChromaStore    : queries
+LocalLangGraphAgent --> SimpleEmbeddingModel : uses
+LocalLangGraphAgent --> OllamaClient        : plans with
+LocalLangGraphAgent --> BbooToolRegistry    : executes
+AssistantEngine --> BbooAppService          : uses
+AssistantEngine --> LocalChromaStore        : queries
+BbooToolRegistry --> BbooAppService         : calls
+BbooToolRegistry --> MySQLRepository        : calls
 
-' =====================================================================
-' RELATIONSHIPS — Focus Engine
-' =====================================================================
-FocusEngine --> DashboardSnapshot : builds >
-FocusEngine --> FocusPlan         : builds >
-FocusEngine --> FocusMetric       : creates >
-FocusEngine --> HabitCard         : creates >
-FocusEngine --> InsightCard       : creates >
-FocusEngine --> ChartSeries       : creates >
+' LLM & Retrieval
+LocalChromaStore --> SimpleEmbeddingModel   : uses
 
-' =====================================================================
-' RELATIONSHIPS — Simulator
-' =====================================================================
-BehaviorSimulator --> UserProfile     : builds >
-BehaviorSimulator --> AccountProfile  : creates >
+' Focus Engine
+FocusEngine --> DashboardSnapshot : builds
+FocusEngine --> FocusPlan         : builds
+FocusEngine --> FocusMetric       : creates
+FocusEngine --> HabitCard         : creates
+FocusEngine --> InsightCard       : creates
+FocusEngine --> ChartSeries       : creates
 
-' =====================================================================
-' RELATIONSHIPS — Repository
-' =====================================================================
-MySQLRepository --> MySQLConfig     : configured by >
-MySQLRepository --> UserProfile     : loads >
-MySQLRepository --> FocusPlan       : saves / loads >
+' Simulator
+BehaviorSimulator --> UserProfile    : builds
+BehaviorSimulator --> AccountProfile : creates
 
-' =====================================================================
-' RELATIONSHIPS — Domain Model
-' =====================================================================
-UserProfile       *-- AccountProfile   : contains
-DashboardSnapshot *-- FocusMetric      : contains
-DashboardSnapshot *-- HabitCard        : contains
-DashboardSnapshot *-- InsightCard      : contains
-DashboardSnapshot *-- ChartSeries      : contains
-DashboardSnapshot *-- ParentGuidance   : contains
-ChartSeries       *-- TrendPoint       : contains
+' Repository
+MySQLRepository --> MySQLConfig  : configured by
+MySQLRepository --> UserProfile  : loads
+MySQLRepository --> FocusPlan    : persists
+
+' Domain Composition
+UserProfile       *-- AccountProfile  : contains
+DashboardSnapshot *-- FocusMetric     : contains
+DashboardSnapshot *-- HabitCard       : contains
+DashboardSnapshot *-- InsightCard     : contains
+DashboardSnapshot *-- ChartSeries     : contains
+DashboardSnapshot *-- ParentGuidance  : contains
+ChartSeries       *-- TrendPoint      : contains
 
 @enduml

@@ -10,6 +10,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8000
+EXPOSE 8010
 
-CMD ["python", "app.py", "--host", "0.0.0.0", "--port", "8000"]
+# Launch uvicorn directly so --host 0.0.0.0 is respected.
+# Running `python api_fastapi.py` hits the __main__ block which
+# hardcodes host="127.0.0.1", making the container unreachable.
+CMD ["uvicorn", "api_fastapi:app", "--host", "0.0.0.0", "--port", "8010"]

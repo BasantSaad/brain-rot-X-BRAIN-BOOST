@@ -14,7 +14,7 @@ class BehaviorSimulationConfig:
 class BehaviorSimulator:
     def __init__(self, config: BehaviorSimulationConfig) -> None:
         self.random = Random(config.seed)
-
+#that need 8 attributes to build the profile 
     def build_profile(
         self,
         audience: str,
