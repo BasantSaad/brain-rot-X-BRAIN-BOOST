@@ -109,6 +109,19 @@ CREATE TABLE IF NOT EXISTS app_usage_logs (
         ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS app_usage_reminders (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    app_name VARCHAR(120) NOT NULL,
+    usage_date DATE NOT NULL,
+    threshold_minutes INT NOT NULL,
+    sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_usage_reminder (user_id, app_name, usage_date, threshold_minutes),
+    CONSTRAINT fk_usage_reminder_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS dashboard_snapshots (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id BIGINT NOT NULL,

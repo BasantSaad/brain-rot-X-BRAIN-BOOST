@@ -105,19 +105,26 @@ class TFIDFSimilarity:
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-#Sentence embedding similarity using a pre-trained model (e.g., SentenceTransformer)
-from sentence_transformers import SentenceTransformer
-import numpy as np
-
 class SentenceEmbeddingSimilarity:
 
     def __init__(self, model_name="all-MiniLM-L6-v2"):
+        from sentence_transformers import SentenceTransformer
+
         self.model = SentenceTransformer(model_name)
 
     def encode(self, text: str):
-        return self.model.encode(text)
+        return self.encode_many([text])[0]
+
+    def encode_many(self, texts: list[str]):
+        return self.model.encode(
+            texts,
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+        ).astype("float32")
 
     def similarity(self, left: str, right: str) -> float:
+        import numpy as np
+
         vec1 = self.encode(left)
         vec2 = self.encode(right)
 

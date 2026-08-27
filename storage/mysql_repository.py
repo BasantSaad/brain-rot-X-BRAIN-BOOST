@@ -174,6 +174,18 @@ class MySQLRepository:
                 )
                 """,
                 """
+                CREATE TABLE IF NOT EXISTS app_usage_reminders (
+                    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    user_id BIGINT NOT NULL,
+                    app_name VARCHAR(120) NOT NULL,
+                    usage_date DATE NOT NULL,
+                    threshold_minutes INT NOT NULL,
+                    sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uniq_usage_reminder (user_id, app_name, usage_date, threshold_minutes),
+                    CONSTRAINT fk_usage_reminder_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+                """,
+                """
                 CREATE TABLE IF NOT EXISTS guardian_links (
                     id BIGINT PRIMARY KEY AUTO_INCREMENT,
                     parent_user_id BIGINT NOT NULL,
@@ -691,6 +703,41 @@ class MySQLRepository:
                     updated_at = CURRENT_TIMESTAMP
                 """,
                 (user_id, app_name, usage_date, usage_hours),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+    def due_app_usage_reminder_thresholds(self, user_id: int, app_name: str, usage_date: str, total_minutes: int) -> list[int]:
+        if total_minutes < 30:
+            return []
+        reached_thresholds = list(range(30, total_minutes + 1, 30))
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT threshold_minutes
+                FROM app_usage_reminders
+                WHERE user_id = %s AND app_name = %s AND usage_date = %s
+                """,
+                (user_id, app_name, usage_date),
+            )
+            sent_thresholds = {int(row["threshold_minutes"]) for row in (cursor.fetchall() or [])}
+            return [threshold for threshold in reached_thresholds if threshold not in sent_thresholds]
+        finally:
+            connection.close()
+
+    def record_app_usage_reminder(self, user_id: int, app_name: str, usage_date: str, threshold_minutes: int) -> None:
+        connection = self._connection(database=self.config.database)
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                """
+                INSERT IGNORE INTO app_usage_reminders (user_id, app_name, usage_date, threshold_minutes)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (user_id, app_name, usage_date, threshold_minutes),
             )
             connection.commit()
         finally:

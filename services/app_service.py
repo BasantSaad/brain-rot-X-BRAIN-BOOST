@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from smtplib import SMTPException
 from typing import Any
 
 from agent.focus_engine import FocusCoachConfig, FocusCoachEngine
+from services.email_service import EmailService
 from shared.schemas import FocusPlan
 from simulator.behavior_simulator import BehaviorSimulationConfig, BehaviorSimulator
 
 
 class BbooAppService:
-    def __init__(self, repository) -> None:
+    def __init__(self, repository, email_service: EmailService | None = None) -> None:
         self.repository = repository
+        self.email_service = email_service or EmailService()
         self.engine = FocusCoachEngine(FocusCoachConfig())
         self.simulator = BehaviorSimulator(BehaviorSimulationConfig())
 
@@ -73,6 +76,50 @@ class BbooAppService:
             attention_game=str(payload["attention_game"]).strip(),
         )
         return self.repository.save_focus_plan(user_id, plan)
+
+    def save_app_usage_with_reminders(
+        self,
+        *,
+        session: dict[str, Any],
+        app_name: str,
+        usage_date: str,
+        usage_hours: float,
+    ) -> dict[str, Any]:
+        self.repository.save_app_usage(session["user_id"], app_name, usage_date, usage_hours)
+        total_minutes = int(round(usage_hours * 60))
+        due_thresholds = self.repository.due_app_usage_reminder_thresholds(
+            session["user_id"],
+            app_name,
+            usage_date,
+            total_minutes,
+        )
+        sent_thresholds: list[int] = []
+        skipped_thresholds: list[int] = []
+        failed_thresholds: list[int] = []
+        for threshold in due_thresholds:
+            try:
+                sent = self.email_service.send_screen_time_reminder(
+                    to_email=session["email"],
+                    first_name=session.get("first_name", ""),
+                    app_name=app_name,
+                    usage_date=usage_date,
+                    threshold_minutes=threshold,
+                    total_minutes=total_minutes,
+                )
+            except (OSError, SMTPException):
+                failed_thresholds.append(threshold)
+                continue
+            if sent:
+                self.repository.record_app_usage_reminder(session["user_id"], app_name, usage_date, threshold)
+                sent_thresholds.append(threshold)
+            else:
+                skipped_thresholds.append(threshold)
+        return {
+            "sent_thresholds": sent_thresholds,
+            "skipped_thresholds": skipped_thresholds,
+            "failed_thresholds": failed_thresholds,
+            "email_configured": self.email_service.is_configured(),
+        }
 
     def _profile_with_live_signals(self, *, user_id: int, profile):
         signals = self.repository.live_behavior_signals(user_id)

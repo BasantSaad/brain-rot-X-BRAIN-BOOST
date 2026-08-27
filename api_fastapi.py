@@ -8,7 +8,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
-from agent.langgraph_runtime import LocalLangGraphAgent
+from agent.langgraph_runtime import BbooLangGraphAgent
 from app import BASE_DIR, STATIC_DIR, load_dotenv
 from services.app_service import BbooAppService
 from shared.schemas import FocusPlan, utc_now_iso
@@ -19,7 +19,7 @@ load_dotenv(BASE_DIR / ".env")
 repository = MySQLRepository(MySQLConfig())
 repository.initialize()
 service = BbooAppService(repository)
-agent_runtime = LocalLangGraphAgent(service)
+agent_runtime = BbooLangGraphAgent(service)
 
 app = FastAPI(title="Bboo Agent API", version="1.0.0")
 app.add_middleware(
@@ -405,8 +405,21 @@ def save_app_usage(payload: dict[str, Any], authorization: str | None = Header(d
         raise HTTPException(status_code=400, detail="Usage date must use YYYY-MM-DD format.")
     if usage_hours < 0 or usage_hours > 24:
         raise HTTPException(status_code=400, detail="Usage hours must be between 0 and 24.")
-    repository.save_app_usage(session["user_id"], app_name, usage_date, usage_hours)
-    return {"usage": repository.app_usage_summary(session["user_id"]), "message": "App usage was saved."}
+    reminders = service.save_app_usage_with_reminders(
+        session=session,
+        app_name=app_name,
+        usage_date=usage_date,
+        usage_hours=usage_hours,
+    )
+    if reminders["sent_thresholds"]:
+        message = "App usage was saved and screen time reminder email was sent."
+    elif reminders["failed_thresholds"]:
+        message = "App usage was saved, but the reminder email could not be sent."
+    elif reminders["skipped_thresholds"]:
+        message = "App usage was saved. Configure SMTP settings to send screen time reminder emails."
+    else:
+        message = "App usage was saved."
+    return {"usage": repository.app_usage_summary(session["user_id"]), "message": message, "reminders": reminders}
 
 
 @app.get("/api/children")

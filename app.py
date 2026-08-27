@@ -8,7 +8,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from agent.langgraph_runtime import LocalLangGraphAgent
+from agent.langgraph_runtime import BbooLangGraphAgent
 from services.app_service import BbooAppService
 from shared.schemas import FocusPlan, utc_now_iso
 from storage.mysql_repository import MySQLConfig, MySQLRepository
@@ -36,7 +36,7 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         self.repository = MySQLRepository(MySQLConfig())
         self.service = BbooAppService(self.repository)
-        self.assistant = LocalLangGraphAgent(self.service)
+        self.assistant = BbooLangGraphAgent(self.service)
         super().__init__(*args, directory=str(STATIC_DIR), **kwargs)
 
     def do_GET(self) -> None:  # noqa: N802
@@ -377,8 +377,19 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             raise ValueError("Usage date must use YYYY-MM-DD format.")
         if usage_hours < 0 or usage_hours > 24:
             raise ValueError("Usage hours must be between 0 and 24.")
-        self.repository.save_app_usage(session["user_id"], app_name, usage_date, usage_hours)
-        self._send_json({"usage": self.repository.app_usage_summary(session["user_id"]), "message": "App usage was saved."})
+        reminders = self.service.save_app_usage_with_reminders(
+            session=session,
+            app_name=app_name,
+            usage_date=usage_date,
+            usage_hours=usage_hours,
+        )
+        self._send_json(
+            {
+                "usage": self.repository.app_usage_summary(session["user_id"]),
+                "message": self._app_usage_message(reminders),
+                "reminders": reminders,
+            }
+        )
 
     def _handle_timer_start(self) -> None:
         session = self._require_session()
@@ -502,6 +513,15 @@ class BbooRequestHandler(SimpleHTTPRequestHandler):
             raise ValueError("Password must include at least one letter.")
         if not re.search(r"\d", password):
             raise ValueError("Password must include at least one number.")
+
+    def _app_usage_message(self, reminders: dict) -> str:
+        if reminders.get("sent_thresholds"):
+            return "App usage was saved and screen time reminder email was sent."
+        if reminders.get("failed_thresholds"):
+            return "App usage was saved, but the reminder email could not be sent."
+        if reminders.get("skipped_thresholds"):
+            return "App usage was saved. Configure SMTP settings to send screen time reminder emails."
+        return "App usage was saved."
 
     def _send_json(self, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(payload).encode("utf-8")

@@ -3,11 +3,25 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 import os
-from typing import Any
+from typing import Any, TypedDict
+
+from langgraph.graph import END, START, StateGraph
 
 from agent.ollama_client import OllamaPlannerClient
-from agent.rag_store import LocalChromaStore
+from agent.rag_store import FaissRagStore
 from agent.tools import BbooToolRegistry
+
+
+class AgentGraphState(TypedDict):
+    user_message: str
+    session: dict[str, Any]
+    settings: dict[str, Any]
+    intent: str
+    tool_name: str | None
+    tool_args: dict[str, Any]
+    retrieved_context: list[dict[str, Any]]
+    tool_result: dict[str, Any]
+    reply: str
 
 
 @dataclass(slots=True)
@@ -23,33 +37,95 @@ class GraphState:
     reply: str = ""
 
 
-class LocalLangGraphAgent:
-    """A small state-machine that mirrors a LangGraph-style agent workflow offline."""
+class BbooLangGraphAgent:
+    """Assistant runtime implemented as a real LangGraph StateGraph."""
 
     def __init__(self, service) -> None:
         self.service = service
-        self.rag_store = LocalChromaStore()
+        self.rag_store = FaissRagStore()
         self.tools = BbooToolRegistry(service)
         self.provider = os.getenv("BBOO_LLM_PROVIDER", "local").strip().lower()
         self.ollama = OllamaPlannerClient()
+        self.graph = self._build_graph()
 
     def run(self, *, message: str, session: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
-        state = GraphState(user_message=message.strip(), session=session, settings=settings)
-        self._retrieve_context(state)
-        self._plan(state)
-        self._execute_tool(state)
-        self._compose_reply(state)
+        state = self.graph.invoke(
+            {
+                "user_message": message.strip(),
+                "session": session,
+                "settings": settings,
+                "intent": "fallback",
+                "tool_name": None,
+                "tool_args": {},
+                "retrieved_context": [],
+                "tool_result": {},
+                "reply": "",
+            }
+        )
         return {
-            "reply": state.reply,
-            "intent": state.intent,
-            "tool_name": state.tool_name,
-            "tool_status": "success" if state.tool_name else "none",
-            "action_payload": state.tool_result,
-            "retrieved_notes": state.retrieved_context,
+            "reply": state["reply"],
+            "intent": state["intent"],
+            "tool_name": state["tool_name"],
+            "tool_status": "success" if state["tool_name"] else "none",
+            "action_payload": state["tool_result"],
+            "retrieved_notes": state["retrieved_context"],
         }
 
-    def _retrieve_context(self, state: GraphState) -> None:
-        state.retrieved_context = self.rag_store.query(state.user_message, limit=2)
+    def _build_graph(self):
+        workflow = StateGraph(AgentGraphState)
+        workflow.add_node("retrieve_context", self._retrieve_context_node)
+        workflow.add_node("plan", self._plan_node)
+        workflow.add_node("execute_tool", self._execute_tool_node)
+        workflow.add_node("compose_reply", self._compose_reply_node)
+
+        workflow.add_edge(START, "retrieve_context")
+        workflow.add_edge("retrieve_context", "plan")
+        workflow.add_edge("plan", "execute_tool")
+        workflow.add_edge("execute_tool", "compose_reply")
+        workflow.add_edge("compose_reply", END)
+
+        return workflow.compile()
+
+    def _retrieve_context_node(self, state: AgentGraphState) -> dict[str, Any]:
+        return {"retrieved_context": self.rag_store.query(state["user_message"], limit=2)}
+
+    def _plan_node(self, state: AgentGraphState) -> dict[str, Any]:
+        runtime_state = self._runtime_state(state)
+        self._plan(runtime_state)
+        return self._state_update(runtime_state)
+
+    def _execute_tool_node(self, state: AgentGraphState) -> dict[str, Any]:
+        runtime_state = self._runtime_state(state)
+        self._execute_tool(runtime_state)
+        return self._state_update(runtime_state)
+
+    def _compose_reply_node(self, state: AgentGraphState) -> dict[str, Any]:
+        runtime_state = self._runtime_state(state)
+        self._compose_reply(runtime_state)
+        return self._state_update(runtime_state)
+
+    def _runtime_state(self, state: AgentGraphState) -> GraphState:
+        return GraphState(
+            user_message=state["user_message"],
+            session=state["session"],
+            settings=state["settings"],
+            intent=state["intent"],
+            tool_name=state["tool_name"],
+            tool_args=dict(state["tool_args"]),
+            retrieved_context=list(state["retrieved_context"]),
+            tool_result=dict(state["tool_result"]),
+            reply=state["reply"],
+        )
+
+    def _state_update(self, state: GraphState) -> dict[str, Any]:
+        return {
+            "intent": state.intent,
+            "tool_name": state.tool_name,
+            "tool_args": state.tool_args,
+            "retrieved_context": state.retrieved_context,
+            "tool_result": state.tool_result,
+            "reply": state.reply,
+        }
 
     def _plan(self, state: GraphState) -> None:
         if self._force_direct_action(state):
@@ -342,3 +418,7 @@ class LocalLangGraphAgent:
             state.intent = "knowledge_answer"
             return
         state.reply = state.reply or "I can update settings, start timers, explain summaries, and analyze usage. Try asking me to change your session time or show your weekly summary."
+
+
+# Backward-compatible alias for older imports and diagrams.
+LocalLangGraphAgent = BbooLangGraphAgent
